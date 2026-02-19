@@ -5,7 +5,7 @@ const generateQRCode = async (serialNumber) => {
     // The URL where the customer will be directed
     // In production, this would be your real domain (e.g., https://yourwarrantyapp.com)
     const baseUrl = process.env.FRONTEND_URL || "https://warrantyweb.netlify.app";
-    const qrData = `${baseUrl}/customer-home?serial=${serialNumber}`;
+    const qrData = `${baseUrl}/register-warranty?serial=${serialNumber}`;
     
     const qrImage = await QRCode.toDataURL(qrData);
     return qrImage;
