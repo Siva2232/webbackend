@@ -26,14 +26,21 @@ exports.registerWarranty = async (req, res) => {
       return res.status(400).json({ message: "Registration allowed only within 7 days of purchase" });
     }
 
-    const registration = await Registration.create({
+    const expiry = new Date(purchase);
+    expiry.setMonth(expiry.getMonth() + (product.warrantyPeriodMonths || 12));
+
+    let registration = await Registration.create({
       productId: product._id,
       serialNumber,
       customerName,
       phone,
       email,
-      purchaseDate
+      purchaseDate,
+      expiryDate: expiry
     });
+
+    // Populate product details for the certificate
+    registration = await registration.populate("productId");
 
     res.status(201).json({ message: "Warranty Registered Successfully", registration });
 

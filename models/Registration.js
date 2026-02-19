@@ -38,6 +38,9 @@ const registrationSchema = new mongoose.Schema(
       enum: ["Active", "Expired", "Not Registered"],
       default: "Active",
     },
+    expiryDate: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
