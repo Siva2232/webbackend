@@ -7,6 +7,10 @@ const productSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    modelNumber: {
+      type: String,
+      trim: true,
+    },
     serialNumber: {
       type: String,
       required: true,

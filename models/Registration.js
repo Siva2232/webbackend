@@ -25,6 +25,14 @@ const registrationSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    modelNumber: {
+      type: String,
+      trim: true,
+    },
+    purchaseShopName: {
+      type: String,
+      trim: true,
+    },
     purchaseDate: {
       type: Date,
       required: true,
