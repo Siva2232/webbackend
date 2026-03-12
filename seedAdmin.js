@@ -9,8 +9,8 @@ const seedAdmin = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
 
-    const email = "admin@example.com";
-    const password = "adminpassword123";
+    const email = "admin@lancaster.com";
+    const password = "lancaster@123";
 
     const adminExists = await Admin.findOne({ email });
     if (adminExists) {
