@@ -1,12 +1,19 @@
 const Registration = require("../models/Registration");
 const Product = require("../models/Product");
 const Notification = require("../models/Notification");
+const xss = require("xss");
 
 // Register Warranty
 exports.registerWarranty = async (req, res) => {
   try {
     console.log('registerWarranty body', req.body);
     const { serialNumber, customerName, phone, email, purchaseDate, modelNumber, purchaseShopName } = req.body;
+
+    // Sanitize user inputs
+    const sanitizedCustomerName = xss(customerName);
+    const sanitizedEmail = xss(email);
+    const sanitizedPhone = xss(phone);
+    const sanitizedShopName = xss(purchaseShopName);
 
     const product = await Product.findOne({ serialNumber });
     if (!product) {
@@ -46,11 +53,11 @@ exports.registerWarranty = async (req, res) => {
     let registration = await Registration.create({
       productId: product._id,
       modelNumber: modelNumber || product.modelNumber,
-      purchaseShopName,
+      purchaseShopName: sanitizedShopName,
       serialNumber,
-      customerName,
-      phone,
-      email,
+      customerName: sanitizedCustomerName,
+      phone: sanitizedPhone,
+      email: sanitizedEmail,
       purchaseDate,
       expiryDate: expiry
     });
