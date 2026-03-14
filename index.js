@@ -29,9 +29,19 @@ const limiter = rateLimit({
 app.use("/api", limiter);
 
 // Enable CORS with options
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+// Allow the deployed frontend origin (e.g. Netlify) + local dev origin.
+const allowedOrigins = [
+  process.env.FRONTEND_URL, // set this in your deployment (e.g. https://warrantyweb.netlify.app)
+  "http://localhost:5173",
+].filter(Boolean);
 
+const corsOptions = {
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS policy: origin '${origin}' not allowed`));
+  },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   optionsSuccessStatus: 204,
