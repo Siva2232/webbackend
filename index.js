@@ -13,6 +13,10 @@ connectDB();
 
 const app = express();
 
+// When running behind a proxy (e.g., Render), enable trust proxy so express-rate-limit
+// can correctly identify client IPs from the X-Forwarded-For header.
+app.set("trust proxy", 1);
+
 // Set security HTTP headers
 app.use(helmet());
 
@@ -27,6 +31,7 @@ app.use("/api", limiter);
 // Enable CORS with options
 const corsOptions = {
   origin: process.env.FRONTEND_URL || "http://localhost:5173",
+
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   optionsSuccessStatus: 204,
@@ -37,7 +42,15 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: "10kb" }));
 
 // Data sanitization against NoSQL query injection
-app.use(mongoSanitize());
+// express-mongo-sanitize may throw in environments where req.query is read-only.
+// Instead, sanitize in-place using the provided utility.
+app.use((req, res, next) => {
+  mongoSanitize.sanitize(req.body);
+  mongoSanitize.sanitize(req.params);
+  mongoSanitize.sanitize(req.headers);
+  mongoSanitize.sanitize(req.query);
+  next();
+});
 
 // Prevent HTTP Parameter Pollution
 app.use(hpp());

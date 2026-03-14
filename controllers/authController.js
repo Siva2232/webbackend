@@ -39,6 +39,10 @@ exports.loginAdmin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, admin.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: "Server configuration error: JWT_SECRET is not set." });
+    }
+
     const token = jwt.sign(
       { id: admin._id },
       process.env.JWT_SECRET,
@@ -48,6 +52,7 @@ exports.loginAdmin = async (req, res) => {
     res.json({ token });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Login error:", error);
+    res.status(500).json({ message: error.message || "Internal server error" });
   }
 };
