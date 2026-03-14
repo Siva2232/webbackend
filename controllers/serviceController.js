@@ -97,7 +97,7 @@ exports.lookupServiceHistory = async (req, res) => {
 // Create New Service Entry
 exports.createServiceRecord = async (req, res) => {
   try {
-    const { serialNumber, modelNumber, customerName, phone, issueDescription, serviceCost, notes } = req.body;
+    const { serialNumber, modelNumber, customerName, phone, issueDescription, serviceCost, notes, technicianName } = req.body;
 
     // Validate
     if (!serialNumber || !customerName || !issueDescription) {
@@ -112,6 +112,7 @@ exports.createServiceRecord = async (req, res) => {
       issueDescription,
       serviceCost: serviceCost || 0,
       technicianNotes: notes,
+      technicianName: technicianName,
       status: "Received",
       receivedDate: new Date(),
     });
@@ -135,13 +136,15 @@ exports.createServiceRecord = async (req, res) => {
 exports.updateServiceRecord = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, paymentStatus, serviceCost, technicianNotes } = req.body;
+    const { status, paymentStatus, serviceCost, technicianNotes, technicianName, shopName } = req.body;
 
     const updates = {};
     if (status) updates.status = status;
     if (paymentStatus) updates.paymentStatus = paymentStatus;
     if (serviceCost !== undefined) updates.serviceCost = serviceCost; // Allow 0
     if (technicianNotes) updates.technicianNotes = technicianNotes;
+    if (technicianName) updates.technicianName = technicianName;
+    if (shopName) updates.shopName = shopName;
 
     // Auto set returnedDate if status becomes Returned
     if (status === "Returned") {

@@ -45,6 +45,12 @@ const serviceRecordSchema = new mongoose.Schema(
       enum: ["Pending", "Paid", "Waived", "Warranty"],
       default: "Warranty",
     },
+    technicianName: {
+      type: String,
+    },
+    shopName: {
+      type: String,
+    },
     technicianNotes: {
       type: String,
     }
