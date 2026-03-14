@@ -151,7 +151,7 @@ exports.updateServiceRecord = async (req, res) => {
       updates.returnedDate = new Date();
     }
 
-    const updatedRecord = await ServiceRecord.findByIdAndUpdate(id, updates, { new: true });
+    const updatedRecord = await ServiceRecord.findByIdAndUpdate(id, updates, { returnDocument: 'after' });
     
     if (!updatedRecord) {
         return res.status(404).json({ message: "Record not found" });

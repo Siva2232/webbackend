@@ -141,7 +141,7 @@ exports.updateRegistration = async (req, res) => {
         purchaseDate,
         expiryDate
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     res.json({ message: "Updated successfully", registration: updated });
