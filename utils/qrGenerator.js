@@ -2,12 +2,14 @@ const QRCode = require("qrcode");
 
 const generateQRCode = async (serialNumber) => {
   try {
-    // The URL where the customer will be directed
-    // In production, this would be your real domain (e.g., https://yourwarrantyapp.com)
     const baseUrl = process.env.FRONTEND_URL || "https://warrantyweb.netlify.app";
     const qrData = `${baseUrl}/register-warranty?serial=${serialNumber}`;
     
-    const qrImage = await QRCode.toDataURL(qrData);
+    const qrImage = await QRCode.toDataURL(qrData, {
+      width: 512,
+      margin: 1,
+      errorCorrectionLevel: 'H',
+    });
     return qrImage;
   } catch (error) {
     throw new Error("QR generation failed");
