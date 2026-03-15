@@ -90,13 +90,48 @@ exports.registerWarranty = async (req, res) => {
   }
 };
 
-// Get All Registrations (Admin)
+// Get All Registrations (Admin) - Optimized for Dashboard Performance
 exports.getRegistrations = async (req, res) => {
   try {
-    // include modelNumber from product as fallback
-    const data = await Registration.find()
+    const { startDate, endDate, limit = 10, search = "" } = req.query;
+    
+    let filter = {};
+    if (startDate || endDate) {
+      filter.registrationDate = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        if (!isNaN(start.getTime())) filter.registrationDate.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        if (!isNaN(end.getTime())) {
+          end.setHours(23, 59, 59, 999);
+          filter.registrationDate.$lte = end;
+        }
+      }
+    }
+
+    if (search) {
+      filter.$or = [
+        { customerName: { $regex: search, $options: "i" } },
+        { serialNumber: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    // High Performance Query: .lean() for speed, .select() for size
+    const data = await Registration.find(filter)
+      .select('customerName phone email serialNumber registrationDate productId purchaseShopName modelNumber')
       .populate("productId", "productName modelNumber")
-      .sort({ createdAt: -1 });
+      .sort({ registrationDate: -1 })
+      .limit(parseInt(limit))
+      .lean();
+
+    res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
     // map to ensure frontend always gets a usable field
     const transformed = data.map((reg) => {
