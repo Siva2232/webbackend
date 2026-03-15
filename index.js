@@ -24,7 +24,6 @@ const limiter = rateLimit({
   max: 100,
   message: "Too many requests from this IP, please try again after 15 minutes",
 });
-app.use("/api", limiter);
 
 // ============================
 // CORS CONFIGURATION
@@ -63,6 +62,8 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+app.use("/api", limiter);
 
 // IMPORTANT: Handle preflight requests
 
