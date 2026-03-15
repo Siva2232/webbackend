@@ -30,6 +30,10 @@ app.use("/api", limiter);
 // CORS CONFIGURATION
 // ============================
 
+// ============================
+// CORS CONFIGURATION
+// ============================
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   "https://warrantyweb.netlify.app",
@@ -58,11 +62,9 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// Apply CORS
 app.use(cors(corsOptions));
 
 // IMPORTANT: Handle preflight requests
-app.options("*", cors(corsOptions));
 
 // ============================
 
