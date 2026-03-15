@@ -22,8 +22,8 @@ const registrationSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
     modelNumber: {
       type: String,

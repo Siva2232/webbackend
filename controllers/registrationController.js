@@ -11,7 +11,7 @@ exports.registerWarranty = async (req, res) => {
 
     // Sanitize user inputs
     const sanitizedCustomerName = xss(customerName);
-    const sanitizedEmail = xss(email);
+    const sanitizedEmail = email ? xss(email) : "";
     const sanitizedPhone = xss(phone);
     const sanitizedShopName = xss(purchaseShopName);
 
@@ -50,17 +50,19 @@ exports.registerWarranty = async (req, res) => {
     const expiry = new Date(purchase);
     expiry.setMonth(expiry.getMonth() + (product.warrantyPeriodMonths || 12));
 
-    let registration = await Registration.create({
+    const registrationPayload = {
       productId: product._id,
       modelNumber: modelNumber || product.modelNumber,
       purchaseShopName: sanitizedShopName,
       serialNumber,
       customerName: sanitizedCustomerName,
       phone: sanitizedPhone,
-      email: sanitizedEmail,
       purchaseDate,
-      expiryDate: expiry
-    });
+      expiryDate: expiry,
+      ...(sanitizedEmail ? { email: sanitizedEmail } : {}),
+    };
+
+    let registration = await Registration.create(registrationPayload);
     console.log('created registration', registration);
 
     // Populate product details for the certificate
