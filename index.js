@@ -31,7 +31,9 @@ app.use("/api", limiter);
 // Enable CORS with options
 // Allow the deployed frontend origin (e.g. Netlify) + local dev origin.
 const allowedOrigins = [
-  process.env.FRONTEND_URL, // set this in your deployment (e.g. https://warrantyweb.netlify.app)
+  process.env.FRONTEND_URL, // e.g., 'https://warrantyweb.netlify.app'
+  "https://warrantyweb.netlify.app",
+  "https://warrantyweb.netlify.app/",
   "http://localhost:5173",
 ].filter(Boolean);
 
@@ -39,8 +41,21 @@ const corsOptions = {
   origin: (origin, callback) => {
     // allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error(`CORS policy: origin '${origin}' not allowed`));
+    
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      // Normalize origins by removing trailing slashes if any
+      const normalizedOrigin = origin.replace(/\/$/, "");
+      const normalizedAllowedOrigin = allowedOrigin.replace(/\/$/, "");
+      return normalizedOrigin === normalizedAllowedOrigin;
+    });
+
+    if (isAllowed) {
+      return callback(null, true);
+    } else {
+      console.log("Blocked by CORS:", origin);
+      return callback(new Error(`CORS policy: origin '${origin}' not allowed`));
+    }
   },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
