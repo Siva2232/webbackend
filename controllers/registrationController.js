@@ -133,20 +133,6 @@ exports.getRegistrations = async (req, res) => {
   }
 };
 
-    // map to ensure frontend always gets a usable field
-    const transformed = data.map((reg) => {
-      const obj = reg.toObject();
-      obj.computedModelNumber = obj.modelNumber || obj.productId?.modelNumber || "";
-      obj.computedShopName = obj.purchaseShopName || "";
-      return obj;
-    });
-
-    res.json(transformed);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 // Update Registration (Admin)
 exports.updateRegistration = async (req, res) => {
   try {
