@@ -34,7 +34,33 @@ exports.createProduct = async (req, res) => {
 // Get All Products
 exports.getProducts = async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 });
+    const { page, limit, q } = req.query;
+    const pageNum = parseInt(page, 10) || 1;
+    const perPage = parseInt(limit, 10) || 0;
+
+    const filter = {};
+    if (q) {
+      const text = q.trim();
+      filter.$or = [
+        { productName: new RegExp(text, "i") },
+        { modelNumber: new RegExp(text, "i") },
+        { serialNumber: new RegExp(text, "i") },
+      ];
+    }
+
+    const query = Product.find(filter).sort({ createdAt: -1 });
+    const total = await Product.countDocuments(filter);
+
+    if (perPage > 0) {
+      query.skip((pageNum - 1) * perPage).limit(perPage);
+    }
+
+    const products = await query.exec();
+
+    if (perPage > 0) {
+      return res.json({ data: products, total, page: pageNum, limit: perPage });
+    }
+
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: error.message });

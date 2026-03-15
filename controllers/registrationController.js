@@ -93,10 +93,33 @@ exports.registerWarranty = async (req, res) => {
 // Get All Registrations (Admin)
 exports.getRegistrations = async (req, res) => {
   try {
-    // include modelNumber from product as fallback
-    const data = await Registration.find()
+    const { page, limit, q } = req.query;
+    const pageNum = parseInt(page, 10) || 1;
+    const perPage = parseInt(limit, 10) || 0;
+
+    // Build search filters if provided
+    const filter = {};
+    if (q) {
+      const text = q.trim();
+      filter.$or = [
+        { customerName: new RegExp(text, "i") },
+        { serialNumber: new RegExp(text, "i") },
+        { modelNumber: new RegExp(text, "i") },
+        { purchaseShopName: new RegExp(text, "i") },
+      ];
+    }
+
+    const query = Registration.find(filter)
       .populate("productId", "productName modelNumber")
       .sort({ createdAt: -1 });
+
+    const total = await Registration.countDocuments(filter);
+
+    if (perPage > 0) {
+      query.skip((pageNum - 1) * perPage).limit(perPage);
+    }
+
+    const data = await query.exec();
 
     // map to ensure frontend always gets a usable field
     const transformed = data.map((reg) => {
@@ -105,6 +128,10 @@ exports.getRegistrations = async (req, res) => {
       obj.computedShopName = obj.purchaseShopName || "";
       return obj;
     });
+
+    if (perPage > 0) {
+      return res.json({ data: transformed, total, page: pageNum, limit: perPage });
+    }
 
     res.json(transformed);
   } catch (error) {
