@@ -53,8 +53,4 @@ const registrationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Indexes for faster stats dashboard performance
-registrationSchema.index({ registrationDate: -1, productId: 1 });
-registrationSchema.index({ serialNumber: 1 });
-
 module.exports = mongoose.model("Registration", registrationSchema);
