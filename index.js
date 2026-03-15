@@ -13,62 +13,63 @@ connectDB();
 
 const app = express();
 
-// When running behind a proxy (e.g., Render), enable trust proxy so express-rate-limit
-// can correctly identify client IPs from the X-Forwarded-For header.
 app.set("trust proxy", 1);
 
-// Set security HTTP headers
+// Security headers
 app.use(helmet());
 
-// Limit requests from same API
+// Rate limit
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: "Too many requests from this IP, please try again after 15 minutes",
 });
 app.use("/api", limiter);
 
-// Enable CORS with options
-// Allow the deployed frontend origin (e.g. Netlify) + local dev origin.
+// ============================
+// CORS CONFIGURATION
+// ============================
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL, // e.g., 'https://warrantyweb.netlify.app'
+  process.env.FRONTEND_URL,
   "https://warrantyweb.netlify.app",
-  "https://warrantyweb.netlify.app/",
   "http://localhost:5173",
 ].filter(Boolean);
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps or curl)
+  origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-    
-    // Check if origin is allowed
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      // Normalize origins by removing trailing slashes if any
-      const normalizedOrigin = origin.replace(/\/$/, "");
-      const normalizedAllowedOrigin = allowedOrigin.replace(/\/$/, "");
-      return normalizedOrigin === normalizedAllowedOrigin;
-    });
+
+    const normalizedOrigin = origin.replace(/\/$/, "");
+
+    const isAllowed = allowedOrigins.some(
+      (allowed) => allowed.replace(/\/$/, "") === normalizedOrigin
+    );
 
     if (isAllowed) {
-      return callback(null, true);
+      callback(null, true);
     } else {
       console.log("Blocked by CORS:", origin);
-      return callback(new Error(`CORS policy: origin '${origin}' not allowed`));
+      callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
-  optionsSuccessStatus: 204,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
+
+// Apply CORS
 app.use(cors(corsOptions));
 
-// Body parser, reading data from body into req.body
+// IMPORTANT: Handle preflight requests
+app.options("*", cors(corsOptions));
+
+// ============================
+
+// Body parser
 app.use(express.json({ limit: "10kb" }));
 
-// Data sanitization against NoSQL query injection
-// express-mongo-sanitize may throw in environments where req.query is read-only.
-// Instead, sanitize in-place using the provided utility.
+// Mongo sanitize
 app.use((req, res, next) => {
   mongoSanitize.sanitize(req.body);
   mongoSanitize.sanitize(req.params);
@@ -77,10 +78,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Prevent HTTP Parameter Pollution
+// Prevent HTTP parameter pollution
 app.use(hpp());
 
-// Routes
+// ============================
+// ROUTES
+// ============================
+
 app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/register", require("./routes/registrationRoutes"));
 app.use("/api/auth", require("./routes/authRoutes"));
@@ -94,6 +98,6 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
