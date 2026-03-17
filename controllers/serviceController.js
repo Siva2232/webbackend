@@ -11,6 +11,7 @@ exports.lookupServiceHistory = async (req, res) => {
     if (!serialNumber && !modelNumber && !q) {
       // Use aggregation to group by serial number and return only the most recent record per item
       const recentServices = await ServiceRecord.aggregate([
+        { $match: { $or: [{ manualEntry: { $exists: false } }, { manualEntry: false }] } },
         { $sort: { receivedDate: -1 } },
         { 
           $group: { 
@@ -44,7 +45,10 @@ exports.lookupServiceHistory = async (req, res) => {
     // 1. Check existing Service Records
     const serviceHistory = await ServiceRecord.find(query).sort({ receivedDate: -1 }).lean();
     
-    // 2. Check Warranty Registration (populated with product info for warranty period)
+    // Filter out manual entries for claim calculation
+    const nonManualHistory = serviceHistory.filter(s => !s.manualEntry && s.serialNumber && s.serialNumber.trim() !== "");
+    
+    // 2. Check Warranty Registration
     let registration = null;
     if (query.$or) {
        registration = await Registration.findOne({ $or: query.$or }).populate('productId');
@@ -52,9 +56,9 @@ exports.lookupServiceHistory = async (req, res) => {
        registration = await Registration.findOne({ serialNumber: query.serialNumber }).populate('productId');
     }
 
-    // 3. Stats
-    const totalClaims = serviceHistory.length;
-    const pendingServices = serviceHistory.filter(s => s.status !== "Returned").length;
+    // 3. Stats (Claims are ONLY for registered products and NON-manual entries)
+    const totalClaims = registration ? nonManualHistory.length : 0;
+    const pendingServices = registration ? nonManualHistory.filter(s => s.status !== "Returned").length : 0;
     
     // Calculate total costs if needed, but let's just return history.
 
@@ -96,7 +100,7 @@ exports.lookupServiceHistory = async (req, res) => {
       serviceHistory: enrichedHistory,
       stats: {
         totalClaims,
-        recentIssue: enrichedHistory.length > 0 ? enrichedHistory[0].issueDescription : null,
+        recentIssue: registration && nonManualHistory.length > 0 ? nonManualHistory[0].issueDescription : null,
         warrantyStatus,
         expiryDate
       }
@@ -111,15 +115,31 @@ exports.lookupServiceHistory = async (req, res) => {
 // Create New Service Entry
 exports.createServiceRecord = async (req, res) => {
   try {
-    const { serialNumber, modelNumber, customerName, phone, shopName, issueDescription, serviceCost, notes, technicianName } = req.body;
+    const {
+      serialNumber,
+      modelNumber,
+      customerName,
+      phone,
+      shopName,
+      issueDescription,
+      serviceCost,
+      notes,
+      technicianName,
+      manualEntry
+    } = req.body;
 
-    // Validate
-    if (!serialNumber || !customerName || !issueDescription || !shopName) {
+    // Validate required fields (serial is optional for manual entries)
+    if (!customerName || !issueDescription || !phone) {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
+    if (!manualEntry && !serialNumber) {
+      return res.status(400).json({ message: "Serial number is required for registered service entries." });
+    }
+
     const newService = new ServiceRecord({
-      serialNumber,
+      manualEntry: Boolean(manualEntry),
+      serialNumber: serialNumber ? String(serialNumber).trim() : null,
       modelNumber,
       customerName,
       phone,

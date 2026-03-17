@@ -3,10 +3,18 @@ const mongoose = require("mongoose");
 
 const serviceRecordSchema = new mongoose.Schema(
   {
+    manualEntry: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     serialNumber: {
       type: String,
-      required: true,
       index: true,
+      required: function () {
+        // serial number is required if this is not a manual entry
+        return !this.manualEntry;
+      },
     },
     modelNumber: {
       type: String,
