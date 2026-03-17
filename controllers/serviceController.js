@@ -42,14 +42,14 @@ exports.lookupServiceHistory = async (req, res) => {
     }
 
     // 1. Check existing Service Records
-    const serviceHistory = await ServiceRecord.find(query).sort({ receivedDate: -1 });
+    const serviceHistory = await ServiceRecord.find(query).sort({ receivedDate: -1 }).lean();
     
-    // 2. Check Warranty Registration
+    // 2. Check Warranty Registration (populated with product info for warranty period)
     let registration = null;
     if (query.$or) {
-       registration = await Registration.findOne({ $or: query.$or });
+       registration = await Registration.findOne({ $or: query.$or }).populate('productId');
     } else if (query.serialNumber) {
-       registration = await Registration.findOne({ serialNumber: query.serialNumber });
+       registration = await Registration.findOne({ serialNumber: query.serialNumber }).populate('productId');
     }
 
     // 3. Stats
@@ -63,26 +63,40 @@ exports.lookupServiceHistory = async (req, res) => {
     let expiryDate = null;
 
     if (registration) {
-      warrantyStatus = "Active";
-      expiryDate = new Date(registration.registrationDate);
-      // Assuming 12 months default if not stored or fetched from product
-      // Actually registration schema has expiryDate, let's use it.
-      if (registration.expiryDate) {
-        if (new Date() > new Date(registration.expiryDate)) {
-          warrantyStatus = "Expired";
-        }
+      const regObj = registration.toObject ? registration.toObject() : registration;
+
+      // Use the stored expiryDate from the registration document
+      if (regObj.expiryDate) {
+        expiryDate = new Date(regObj.expiryDate);
+      } else if (regObj.purchaseDate) {
+        // Fallback: Compute expiry as 1 year from purchase if no stored expiry
+        const pDate = new Date(regObj.purchaseDate);
+        const months = regObj.productId?.warrantyPeriodMonths || 12;
+        expiryDate = new Date(pDate);
+        expiryDate.setMonth(expiryDate.getMonth() + months);
+      }
+
+      if (expiryDate && new Date() > expiryDate) {
+        warrantyStatus = "Expired";
+      } else if (expiryDate) {
+        warrantyStatus = "Active";
       }
     } else {
-        // Fallback: If no registration, check Service Records to see if we've seen it before? 
-        // Or if we can find the Product manufacture date (not implemented here without product lookup).
+      warrantyStatus = "Not Registered";
     }
+
+    // Ensure shopName is populated for display if missing in history records but present in registration
+    const enrichedHistory = serviceHistory.map(record => ({
+      ...record,
+      shopName: record.shopName || (registration ? (registration.purchaseShopName || registration.shopName) : '')
+    }));
 
     res.json({
       registration,
-      serviceHistory,
+      serviceHistory: enrichedHistory,
       stats: {
         totalClaims,
-        recentIssue: serviceHistory.length > 0 ? serviceHistory[0].issueDescription : null,
+        recentIssue: enrichedHistory.length > 0 ? enrichedHistory[0].issueDescription : null,
         warrantyStatus,
         expiryDate
       }
@@ -97,10 +111,10 @@ exports.lookupServiceHistory = async (req, res) => {
 // Create New Service Entry
 exports.createServiceRecord = async (req, res) => {
   try {
-    const { serialNumber, modelNumber, customerName, phone, issueDescription, serviceCost, notes, technicianName } = req.body;
+    const { serialNumber, modelNumber, customerName, phone, shopName, issueDescription, serviceCost, notes, technicianName } = req.body;
 
     // Validate
-    if (!serialNumber || !customerName || !issueDescription) {
+    if (!serialNumber || !customerName || !issueDescription || !shopName) {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
@@ -109,6 +123,7 @@ exports.createServiceRecord = async (req, res) => {
       modelNumber,
       customerName,
       phone,
+      shopName,
       issueDescription,
       serviceCost: serviceCost || 0,
       technicianNotes: notes,
