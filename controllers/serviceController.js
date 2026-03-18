@@ -198,34 +198,3 @@ exports.updateServiceRecord = async (req, res) => {
     res.status(500).json({ message: "Error updating record." });
   }
 };
-
-// Get Manual Service Customers (unique customers from manual entries)
-exports.getManualCustomers = async (req, res) => {
-  try {
-    const manualCustomers = await ServiceRecord.aggregate([
-      { $match: { manualEntry: true } },
-      { $sort: { receivedDate: -1 } },
-      {
-        $group: {
-          _id: { customerName: "$customerName", phone: "$phone" },
-          customerName: { $first: "$customerName" },
-          phone: { $first: "$phone" },
-          serialNumber: { $first: "$serialNumber" },
-          modelNumber: { $first: "$modelNumber" },
-          shopName: { $first: "$shopName" },
-          lastServiceDate: { $first: "$receivedDate" },
-          totalServices: { $sum: 1 },
-          latestIssue: { $first: "$issueDescription" },
-          latestStatus: { $first: "$status" },
-          createdAt: { $first: "$createdAt" },
-        }
-      },
-      { $sort: { lastServiceDate: -1 } }
-    ]);
-
-    res.json({ manualCustomers });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error fetching manual customers." });
-  }
-};

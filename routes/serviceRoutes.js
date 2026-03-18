@@ -3,16 +3,12 @@ const router = express.Router();
 const { 
   lookupServiceHistory, 
   createServiceRecord, 
-  updateServiceRecord,
-  getManualCustomers
+  updateServiceRecord 
 } = require("../controllers/serviceController");
 const protect = require("../middleware/authMiddleware");
 
 // Look up a product's service history & warranty status
 router.get("/history", lookupServiceHistory);
-
-// Get manual service customers
-router.get("/manual-customers", protect, getManualCustomers);
 
 // Create a new service record (Store Accept)
 router.post("/", protect, createServiceRecord);

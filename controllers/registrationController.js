@@ -7,7 +7,7 @@ const xss = require("xss");
 exports.registerWarranty = async (req, res) => {
   try {
     console.log('registerWarranty body', req.body);
-    const { serialNumber, customerName, phone, email, purchaseDate, modelNumber, purchaseShopName } = req.body;
+    const { serialNumber, customerName, phone, email, purchaseDate, modelNumber, purchaseShopName, isManual } = req.body;
 
     // Sanitize user inputs
     const sanitizedCustomerName = xss(customerName);
@@ -15,49 +15,47 @@ exports.registerWarranty = async (req, res) => {
     const sanitizedPhone = xss(phone);
     const sanitizedShopName = xss(purchaseShopName);
 
-    const product = await Product.findOne({ serialNumber });
-    if (!product) {
-      return res.status(404).json({ message: "Invalid serial number" });
+    let product = null;
+    let expiry = null;
+
+    if (isManual) {
+      // Manual customers have zero warranty claims and their count doesn't increment?
+      // User says: "manual create customers have no waranty clian they have alwyas zero all time not increment te counts any time"
+      // Setting expiry date to far past or just leaving it null/zeroed.
+      // If we want no warranty, we can set expiry to the purchase date itself or a fixed old date.
+      expiry = new Date(purchaseDate || new Date()); 
+    } else {
+      product = await Product.findOne({ serialNumber });
+      if (!product) {
+        return res.status(404).json({ message: "Invalid serial number" });
+      }
+
+      // Check QR expiration (90 days from creation)
+      const qrCreationDate = new Date(product.createdAt);
+      const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+      if (new Date() - qrCreationDate > ninetyDaysMs) {
+        return res.status(400).json({ message: "This QR code has expired (valid for 90 days). Please contact support for a new one." });
+      }
+
+      // Check duplicate registration
+      const existing = await Registration.findOne({ serialNumber });
+      if (existing) {
+        return res.status(400).json({ message: "Warranty already registered" });
+      }
+
+      expiry = new Date(purchaseDate);
+      expiry.setMonth(expiry.getMonth() + (product.warrantyPeriodMonths || 12));
     }
-
-    // Check QR expiration (90 days from creation)
-    const qrCreationDate = new Date(product.createdAt);
-    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-    if (new Date() - qrCreationDate > ninetyDaysMs) {
-      return res.status(400).json({ message: "This QR code has expired (valid for 90 days). Please contact support for a new one." });
-    }
-
-    // Check duplicate registration
-    const existing = await Registration.findOne({ serialNumber });
-    if (existing) {
-      return res.status(400).json({ message: "Warranty already registered" });
-    }
-
-    const purchase = new Date(purchaseDate);
-    const today = new Date();
-
-    const diffDays = (today - purchase) / (1000 * 60 * 60 * 24);
-
-    // Registration allowed only within 7 days of purchase?
-    // User requested to remove the 1 week before dates logic from the frontend, 
-    // but the backend still checks it. Keep internal logic but the UI is now free.
-    // If you want to remove this constraint entirely:
-    // if (diffDays > 7) { ... } 
-    
-    // For now, I will keep the check so the system remains consistent with original rules, 
-    // but the UI will no longer force it.
-
-    const expiry = new Date(purchase);
-    expiry.setMonth(expiry.getMonth() + (product.warrantyPeriodMonths || 12));
 
     const registrationPayload = {
-      productId: product._id,
-      modelNumber: modelNumber || product.modelNumber,
+      productId: product ? product._id : null,
+      isManual: Boolean(isManual),
+      modelNumber: modelNumber || (product ? product.modelNumber : ""),
       purchaseShopName: sanitizedShopName,
-      serialNumber,
+      serialNumber: serialNumber || "",
       customerName: sanitizedCustomerName,
       phone: sanitizedPhone,
-      purchaseDate,
+      purchaseDate: purchaseDate || new Date(),
       expiryDate: expiry,
       ...(sanitizedEmail ? { email: sanitizedEmail } : {}),
     };
@@ -65,25 +63,27 @@ exports.registerWarranty = async (req, res) => {
     let registration = await Registration.create(registrationPayload);
     console.log('created registration', registration);
 
-    // Populate product details for the certificate
-    registration = await registration.populate("productId");
+    if (product) {
+      // Populate product details for the certificate
+      registration = await registration.populate("productId");
+    }
 
     // Add Notification
     await Notification.create({
       type: "REGISTRATION",
-      message: `New Warranty: ${customerName} registered ${serialNumber}`,
+      message: `New ${isManual ? 'Manual ' : ''}Customer: ${customerName}${serialNumber ? ` registered ${serialNumber}` : ''}`,
       data: {
         registrationId: registration._id,
-        productId: product._id
+        productId: product ? product._id : null
       }
     });
 
     // attach computed fallback values
     const regObj = registration.toObject();
-    regObj.computedModelNumber = regObj.modelNumber || regObj.productId?.modelNumber || "";
+    regObj.computedModelNumber = regObj.modelNumber || (regObj.productId ? regObj.productId.modelNumber : "");
     regObj.computedShopName = regObj.purchaseShopName || "";
 
-    res.status(201).json({ message: "Warranty Registered Successfully", registration: regObj });
+    res.status(201).json({ message: "Customer Registered Successfully", registration: regObj });
 
   } catch (error) {
     res.status(500).json({ message: error.message });

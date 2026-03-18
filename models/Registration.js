@@ -5,11 +5,15 @@ const registrationSchema = new mongoose.Schema(
     productId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
-      required: true,
+      required: false,
+    },
+    isManual: {
+      type: Boolean,
+      default: false,
     },
     serialNumber: {
       type: String,
-      required: true,
+      required: false,
     },
     customerName: {
       type: String,
