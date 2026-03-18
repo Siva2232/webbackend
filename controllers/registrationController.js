@@ -115,6 +115,16 @@ exports.getRegistrations = async (req, res) => {
 
     const total = await Registration.countDocuments(filter);
 
+    // Compute global stats (across ALL registrations, ignoring pagination/search)
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const [activeCount, expiredCount, newTodayCount] = await Promise.all([
+      Registration.countDocuments({ expiryDate: { $gte: now } }),
+      Registration.countDocuments({ expiryDate: { $lt: now } }),
+      Registration.countDocuments({ createdAt: { $gte: startOfToday } }),
+    ]);
+    const totalAll = await Registration.countDocuments();
+
     if (perPage > 0) {
       query.skip((pageNum - 1) * perPage).limit(perPage);
     }
@@ -129,8 +139,10 @@ exports.getRegistrations = async (req, res) => {
       return obj;
     });
 
+    const statsObj = { totalAll, active: activeCount, expired: expiredCount, newToday: newTodayCount };
+
     if (perPage > 0) {
-      return res.json({ data: transformed, total, page: pageNum, limit: perPage });
+      return res.json({ data: transformed, total, page: pageNum, limit: perPage, stats: statsObj });
     }
 
     res.json(transformed);
