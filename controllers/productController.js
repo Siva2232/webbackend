@@ -84,61 +84,51 @@ exports.bulkCreateProducts = async (req, res) => {
   try {
     const { productName, modelNumber, manufactureDate, warrantyPeriodMonths, prefix, count } = req.body;
     
+    if (!productName || !modelNumber || !prefix || !count || count <= 0) {
+      return res.status(400).json({ message: "All fields are required and count must be greater than zero." });
+    }
+
     // Helper to separate alpha prefix and numeric suffix
     const parseSerial = (serial) => {
-        const match = serial.match(/^(\D*)(\d+)$/);
-        if (!match) return { prefixStr: serial, startNum: 1, isNumeric: false };
-        return { prefixStr: match[1], startNum: parseInt(match[2]), isNumeric: true, length: match[2].length };
+        // Case: prefix (non-digits) followed by suffix (digits)
+        // If the whole string is digits, prefixStr is "" and startNum is the number.
+        const match = String(serial).trim().match(/^(\D*)(\d+)$/);
+        
+        if (!match) {
+          // If no digits at the end, treat entire serial as prefix and count from 0
+          return { 
+            prefixStr: String(serial).trim(), 
+            startNum: 0, 
+            isNumeric: false, 
+            length: 0 
+          };
+        }
+
+        return { 
+            prefixStr: match[1], 
+            startNum: parseInt(match[2], 10), 
+            isNumeric: true, 
+            length: match[2].length 
+        };
     };
 
     const { prefixStr, startNum, isNumeric, length } = parseSerial(prefix);
 
     const results = [];
     const errors = [];
+    const requestedCount = parseInt(count, 10);
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < requestedCount; i++) {
       let currentSerial;
       
-      if (isNumeric || (prefixStr === "" && !isNaN(parseInt(prefix)))) {
-         // Case: Pure number or ends in number
-         const num = startNum + i;
-         if (length && length > String(num).length) {
-            // pad with leading zeros if original had them?
-            // "001" -> "002".
-             currentSerial = `${prefixStr}${String(num).padStart(length, '0')}`;
-         } else {
-             currentSerial = `${prefixStr}${num}`; 
-         }
+      if (isNumeric) {
+         // If startNum is 100, first serial will be 100, then 101, etc.
+         const nextNum = startNum + i; 
+         currentSerial = `${prefixStr}${String(nextNum).padStart(length, '0')}`;
       } else {
-         // Case: No trailing number found (e.g. "ABC"), append simple counter
-         currentSerial = `${prefix}${i + 1}`;
+         // Case: No trailing number found (e.g. "ABC"), append simple counter "ABC1"
+         currentSerial = `${prefixStr}${i + 1}`;
       }
-
-      // Special case: If user input purely "26051000" (prefix), loop i=0 gives 26051000.
-      // But prompt says "if 26051000 ... generate 26051001 to 26051010".
-      // This implies the input IS the first one? Or the input is the previous one?
-      // "if 26051000 then max count 10 then generate 26051001 to 26051010"
-      // Wait. If I input X, and get X+1...X+10. That means X is the BASE.
-      // So first generated serial is X + 1.
-      
-      // Let's adjust logic based on "generate 26051001 to 26051010" when input is "26051000".
-      // This means we start incrementing from 1.
-      
-      const nextNum = startNum + i + 1; // +1 because we want to start AFTER the provided number
-      
-      // Let's re-eval Logic.
-      // User Input: 26051000.
-      // Expected: 26051001.
-      // My parseSerial("26051000") -> prefixStr="", startNum=26051000.
-      // nextNum = 26051000 + 0 + 1 => 26051001. Correct.
-      
-      // User Input: SN-100.
-      // Expected: SN-101?
-      // parseSerial("SN-100") -> prefixStr="SN-", startNum=100.
-      // nextNum = 100 + 0 + 1 => 101.
-      // Result: SN-101.
-      
-      currentSerial = `${prefixStr}${String(nextNum).padStart(length || 0, '0')}`;
 
       try {
         // Check duplicate
@@ -163,8 +153,15 @@ exports.bulkCreateProducts = async (req, res) => {
       }
     }
 
+    if (results.length === 0) {
+      return res.status(409).json({ 
+        message: `No products created. All ${requestedCount} serials already exist or encountered errors.`,
+        errors: errors 
+      });
+    }
+
     res.status(201).json({ 
-      message: `Successfully created ${results.length} products`,
+      message: `Successfully created ${results.length} products.`,
       products: results,
       errors: errors.length > 0 ? errors : null
     });
