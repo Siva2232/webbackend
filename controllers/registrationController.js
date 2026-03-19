@@ -216,6 +216,37 @@ exports.getRegistrations = async (req, res) => {
   }
 };
 
+// Delete Registration (Admin)
+exports.deleteRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const registration = await Registration.findById(id);
+    if (!registration) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+
+    await registration.deleteOne();
+    res.json({ message: "Registration deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Delete multiple registrations (Admin)
+exports.deleteRegistrations = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No registration IDs provided" });
+    }
+
+    const { deletedCount } = await Registration.deleteMany({ _id: { $in: ids } });
+    res.json({ message: `Deleted ${deletedCount} registrations`, deletedCount });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Update Registration (Admin)
 exports.updateRegistration = async (req, res) => {
   try {

@@ -39,7 +39,7 @@ const serviceRecordSchema = new mongoose.Schema(
     priority: {
       type: String,
       enum: ["High", "Medium", "Low"],
-      default: "Medium",
+      // Do not default to Medium so new requests can start with no priority set
       index: true,
     },
     receivedDate: {

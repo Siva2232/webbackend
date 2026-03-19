@@ -3,7 +3,8 @@ const router = express.Router();
 const { 
   lookupServiceHistory, 
   createServiceRecord, 
-  updateServiceRecord 
+  updateServiceRecord,
+  deleteServiceRecord
 } = require("../controllers/serviceController");
 const protect = require("../middleware/authMiddleware");
 
@@ -15,5 +16,8 @@ router.post("/", protect, createServiceRecord);
 
 // Update a service record (Store Send / Payment)
 router.put("/:id", protect, updateServiceRecord);
+
+// Delete a service record
+router.delete("/:id", protect, deleteServiceRecord);
 
 module.exports = router;

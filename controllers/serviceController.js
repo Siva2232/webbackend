@@ -138,7 +138,7 @@ exports.createServiceRecord = async (req, res) => {
       return res.status(400).json({ message: "Serial number is required for registered service entries." });
     }
 
-    const sanitizedPriority = ['High', 'Medium', 'Low'].includes(priority) ? priority : 'Medium';
+    const sanitizedPriority = ['High', 'Medium', 'Low'].includes(priority) ? priority : undefined;
 
     const newService = new ServiceRecord({
       manualEntry: Boolean(manualEntry),
@@ -201,5 +201,19 @@ exports.updateServiceRecord = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error updating record." });
+  }
+};
+// Delete Service Record
+exports.deleteServiceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedRecord = await ServiceRecord.findByIdAndDelete(id);
+    if (!deletedRecord) {
+      return res.status(404).json({ message: "Service record not found" });
+    }
+    res.json({ message: "Service record deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error deleting service record" });
   }
 };

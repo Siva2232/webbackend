@@ -67,6 +67,35 @@ exports.getProducts = async (req, res) => {
   }
 };
 
+// Delete Product by ID
+exports.deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    await product.deleteOne();
+    res.json({ message: "Product deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Delete multiple products
+exports.deleteProducts = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: "No product IDs provided" });
+    }
+
+    const { deletedCount } = await Product.deleteMany({ _id: { $in: ids } });
+    res.json({ message: `Deleted ${deletedCount} products`, deletedCount });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Get Product by Serial
 exports.getProductBySerial = async (req, res) => {
   try {
