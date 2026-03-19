@@ -124,10 +124,11 @@ exports.getRegistrations = async (req, res) => {
     const endOfToday = new Date(startOfToday);
     endOfToday.setHours(23, 59, 59, 999);
 
-    const [activeCount, expiredCount, newTodayCount] = await Promise.all([
+    const [activeCount, expiredCount, newTodayCount, manualCount] = await Promise.all([
       Registration.countDocuments({ expiryDate: { $gte: now } }),
       Registration.countDocuments({ expiryDate: { $lt: now } }),
       Registration.countDocuments({ createdAt: { $gte: startOfToday, $lte: endOfToday } }),
+      Registration.countDocuments({ isManual: true }),
     ]);
     const totalAll = await Registration.countDocuments();
 
@@ -145,7 +146,7 @@ exports.getRegistrations = async (req, res) => {
       return obj;
     });
 
-    const statsObj = { totalAll, active: activeCount, expired: expiredCount, newToday: newTodayCount };
+    const statsObj = { totalAll, active: activeCount, expired: expiredCount, newToday: newTodayCount, manual: manualCount };
 
     if (perPage > 0) {
       return res.json({ data: transformed, total, page: pageNum, limit: perPage, stats: statsObj });
