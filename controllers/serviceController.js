@@ -125,7 +125,8 @@ exports.createServiceRecord = async (req, res) => {
       serviceCost,
       notes,
       technicianName,
-      manualEntry
+      manualEntry,
+      priority
     } = req.body;
 
     // Validate required fields (serial is optional for manual entries)
@@ -136,6 +137,8 @@ exports.createServiceRecord = async (req, res) => {
     if (!manualEntry && !serialNumber) {
       return res.status(400).json({ message: "Serial number is required for registered service entries." });
     }
+
+    const sanitizedPriority = ['High', 'Medium', 'Low'].includes(priority) ? priority : 'Medium';
 
     const newService = new ServiceRecord({
       manualEntry: Boolean(manualEntry),
@@ -148,6 +151,7 @@ exports.createServiceRecord = async (req, res) => {
       serviceCost: serviceCost || 0,
       technicianNotes: notes,
       technicianName: technicianName,
+      priority: sanitizedPriority,
       status: "Received",
       receivedDate: new Date(),
     });
@@ -171,7 +175,7 @@ exports.createServiceRecord = async (req, res) => {
 exports.updateServiceRecord = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, paymentStatus, serviceCost, technicianNotes, technicianName, shopName } = req.body;
+    const { status, paymentStatus, serviceCost, technicianNotes, technicianName, shopName, priority } = req.body;
 
     const updates = {};
     if (status) updates.status = status;
@@ -180,6 +184,7 @@ exports.updateServiceRecord = async (req, res) => {
     if (technicianNotes) updates.technicianNotes = technicianNotes;
     if (technicianName) updates.technicianName = technicianName;
     if (shopName) updates.shopName = shopName;
+    if (priority && ['High', 'Medium', 'Low'].includes(priority)) updates.priority = priority;
 
     // Auto set returnedDate if status becomes Returned
     if (status === "Returned") {

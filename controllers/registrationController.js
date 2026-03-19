@@ -7,13 +7,14 @@ const xss = require("xss");
 exports.registerWarranty = async (req, res) => {
   try {
     console.log('registerWarranty body', req.body);
-    const { serialNumber, customerName, phone, email, purchaseDate, modelNumber, purchaseShopName, isManual } = req.body;
+    const { serialNumber, customerName, phone, email, purchaseDate, modelNumber, purchaseShopName, carModelName, isManual } = req.body;
 
     // Sanitize user inputs
     const sanitizedCustomerName = xss(customerName);
     const sanitizedEmail = email ? xss(email) : "";
     const sanitizedPhone = xss(phone);
     const sanitizedShopName = xss(purchaseShopName);
+    const sanitizedCarModel = carModelName ? xss(carModelName) : "";
 
     let product = null;
     let expiry = null;
@@ -52,6 +53,7 @@ exports.registerWarranty = async (req, res) => {
       isManual: Boolean(isManual),
       modelNumber: modelNumber || (product ? product.modelNumber : ""),
       purchaseShopName: sanitizedShopName,
+      carModelName: sanitizedCarModel,
       serialNumber: serialNumber || "",
       customerName: sanitizedCustomerName,
       phone: sanitizedPhone,
@@ -93,7 +95,7 @@ exports.registerWarranty = async (req, res) => {
 // Get All Registrations (Admin)
 exports.getRegistrations = async (req, res) => {
   try {
-    const { page, limit, q } = req.query;
+    const { page, limit, q, status, dateFilter, startDate, endDate, isManual } = req.query;
     const pageNum = parseInt(page, 10) || 1;
     const perPage = parseInt(limit, 10) || 0;
 
@@ -109,6 +111,61 @@ exports.getRegistrations = async (req, res) => {
       ];
     }
 
+    // Status filters (active / expired)
+    const now = new Date();
+    if (status === "active") {
+      filter.expiryDate = { $gte: now };
+    } else if (status === "expired") {
+      filter.expiryDate = { $lt: now };
+    }
+
+    // Manual services
+    if (isManual === "true") {
+      filter.isManual = true;
+    }
+
+    // Date range filters (createdAt)
+    if (dateFilter && dateFilter !== "all") {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      let start = null;
+      let end = null;
+
+      if (dateFilter === "today") {
+        start = startOfToday;
+        end = new Date(startOfToday);
+        end.setHours(23, 59, 59, 999);
+      } else if (dateFilter === "yesterday") {
+        start = new Date(startOfToday);
+        start.setDate(start.getDate() - 1);
+        end = new Date(startOfToday);
+        end.setMilliseconds(-1);
+      } else if (dateFilter === "week") {
+        start = new Date(startOfToday);
+        start.setDate(start.getDate() - 7);
+        end = new Date(startOfToday);
+        end.setHours(23, 59, 59, 999);
+      } else if (dateFilter === "month") {
+        start = new Date(startOfToday);
+        start.setMonth(start.getMonth() - 1);
+        end = new Date(startOfToday);
+        end.setHours(23, 59, 59, 999);
+      } else if (dateFilter === "year") {
+        start = new Date(startOfToday);
+        start.setFullYear(start.getFullYear() - 1);
+        end = new Date(startOfToday);
+        end.setHours(23, 59, 59, 999);
+      } else if (dateFilter === "custom" && startDate && endDate) {
+        start = new Date(startDate);
+        end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+      }
+
+      if (start && end) {
+        filter.createdAt = { $gte: start, $lte: end };
+      }
+    }
+
     const query = Registration.find(filter)
       .populate("productId", "productName modelNumber")
       .sort({ createdAt: -1 });
@@ -116,7 +173,7 @@ exports.getRegistrations = async (req, res) => {
     const total = await Registration.countDocuments(filter);
 
     // Compute global stats (across ALL registrations, ignoring pagination/search)
-    const now = new Date();
+    // `now` is already defined above (used for status filtering) so reuse it here.
     // Get start of today. If the server is in GMT+5:30 (India), 00:00 local is 18:30 UTC previous day.
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);

@@ -36,6 +36,12 @@ const serviceRecordSchema = new mongoose.Schema(
       enum: ["Received", "In Progress", "Ready", "Returned"],
       default: "Received",
     },
+    priority: {
+      type: String,
+      enum: ["High", "Medium", "Low"],
+      default: "Medium",
+      index: true,
+    },
     receivedDate: {
       type: Date,
       default: Date.now,

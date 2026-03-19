@@ -33,6 +33,11 @@ const registrationSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    carModelName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     purchaseShopName: {
       type: String,
       trim: true,
