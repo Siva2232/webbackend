@@ -168,6 +168,7 @@ exports.getRegistrations = async (req, res) => {
 
     const query = Registration.find(filter)
       .populate("productId", "productName modelNumber")
+      .lean()
       .sort({ createdAt: -1 });
 
     const total = await Registration.countDocuments(filter);
@@ -181,13 +182,13 @@ exports.getRegistrations = async (req, res) => {
     const endOfToday = new Date(startOfToday);
     endOfToday.setHours(23, 59, 59, 999);
 
-    const [activeCount, expiredCount, newTodayCount, manualCount] = await Promise.all([
+    const [activeCount, expiredCount, newTodayCount, manualCount, totalAll] = await Promise.all([
       Registration.countDocuments({ expiryDate: { $gte: now } }),
       Registration.countDocuments({ expiryDate: { $lt: now } }),
       Registration.countDocuments({ createdAt: { $gte: startOfToday, $lte: endOfToday } }),
       Registration.countDocuments({ isManual: true }),
+      Registration.countDocuments(),
     ]);
-    const totalAll = await Registration.countDocuments();
 
     if (perPage > 0) {
       query.skip((pageNum - 1) * perPage).limit(perPage);
@@ -197,8 +198,8 @@ exports.getRegistrations = async (req, res) => {
 
     // map to ensure frontend always gets a usable field
     const transformed = data.map((reg) => {
-      const obj = reg.toObject();
-      obj.computedModelNumber = obj.modelNumber || obj.productId?.modelNumber || "";
+      const obj = reg;
+      obj.computedModelNumber = obj.modelNumber || (obj.productId ? obj.productId.modelNumber : "");
       obj.computedShopName = obj.purchaseShopName || "";
       return obj;
     });
