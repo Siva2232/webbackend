@@ -117,11 +117,17 @@ exports.getRegistrations = async (req, res) => {
 
     // Compute global stats (across ALL registrations, ignoring pagination/search)
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Get start of today. If the server is in GMT+5:30 (India), 00:00 local is 18:30 UTC previous day.
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setHours(23, 59, 59, 999);
+
     const [activeCount, expiredCount, newTodayCount] = await Promise.all([
       Registration.countDocuments({ expiryDate: { $gte: now } }),
       Registration.countDocuments({ expiryDate: { $lt: now } }),
-      Registration.countDocuments({ createdAt: { $gte: startOfToday } }),
+      Registration.countDocuments({ createdAt: { $gte: startOfToday, $lte: endOfToday } }),
     ]);
     const totalAll = await Registration.countDocuments();
 
