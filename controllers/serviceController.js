@@ -57,9 +57,10 @@ exports.lookupServiceHistory = async (req, res) => {
     }
 
     // 3. Stats
-    const totalClaims = registration ? nonManualHistory.length : 0;
     const serviceCount = serviceHistory.length;
-    const pendingServices = registration ? nonManualHistory.filter(s => s.status !== "Returned").length : 0;
+    const isManualRegistration = registration ? Boolean(registration.isManual) : false;
+    const totalClaims = registration && !isManualRegistration ? nonManualHistory.length : 0;
+    const pendingServices = registration && !isManualRegistration ? nonManualHistory.filter(s => s.status !== "Returned").length : 0;
 
     // Calculate total costs if needed, but let's just return history.
 
