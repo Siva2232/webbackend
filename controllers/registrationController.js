@@ -265,7 +265,7 @@ exports.deleteRegistrations = async (req, res) => {
 exports.updateRegistration = async (req, res) => {
   try {
     const { id } = req.params;
-    const { customerName, phone, email, purchaseShopName, modelNumber, purchaseDate } = req.body;
+    const { customerName, phone, email, purchaseShopName, carModelName, modelNumber, purchaseDate } = req.body;
 
     const registration = await Registration.findById(id).populate("productId");
     if (!registration) {
@@ -288,6 +288,7 @@ exports.updateRegistration = async (req, res) => {
         phone,
         email,
         purchaseShopName,
+        carModelName,
         modelNumber,
         purchaseDate,
         expiryDate
