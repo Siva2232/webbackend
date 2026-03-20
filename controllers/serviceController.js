@@ -57,10 +57,14 @@ exports.lookupServiceHistory = async (req, res) => {
     }
 
     // 3. Stats
-    const serviceCount = serviceHistory.length;
     const isManualRegistration = registration ? Boolean(registration.isManual) : false;
-    const totalClaims = registration && !isManualRegistration ? nonManualHistory.length : 0;
-    const pendingServices = registration && !isManualRegistration ? nonManualHistory.filter(s => s.status !== "Returned").length : 0;
+    const isRegistered = registration && !isManualRegistration;
+
+    // Service count should reflect non-manual warranty requests for registered customers,
+    // and fall back to all matched history for guest/manual queries.
+    const serviceCount = isRegistered ? nonManualHistory.length : serviceHistory.length;
+    const totalClaims = isRegistered ? nonManualHistory.length : 0;
+    const pendingServices = isRegistered ? nonManualHistory.filter(s => s.status !== "Returned").length : 0;
 
     // Calculate total costs if needed, but let's just return history.
 
