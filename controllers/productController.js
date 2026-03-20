@@ -12,8 +12,8 @@ exports.createProduct = async (req, res) => {
       return res.status(400).json({ message: "Serial number already exists" });
     }
 
-    // Generate QR Code via utility
-    const qrCodeUrl = await generateQRCode(serialNumber);
+    // Generate QR Code via utility (model + encoded serial token)
+    const qrCodeUrl = await generateQRCode(serialNumber, modelNumber);
 
     const product = await Product.create({
       productName,
@@ -167,7 +167,7 @@ exports.bulkCreateProducts = async (req, res) => {
           continue;
         }
 
-        const qrCodeUrl = await generateQRCode(currentSerial);
+        const qrCodeUrl = await generateQRCode(currentSerial, modelNumber);
         const product = await Product.create({
           productName,
           modelNumber,
