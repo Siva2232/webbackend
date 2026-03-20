@@ -19,12 +19,12 @@ exports.registerWarranty = async (req, res) => {
     let product = null;
     let expiry = null;
 
+    let warrantyStatus = "Active";
     if (isManual) {
-      // Manual customers have zero warranty claims and their count doesn't increment?
-      // User says: "manual create customers have no waranty clian they have alwyas zero all time not increment te counts any time"
-      // Setting expiry date to far past or just leaving it null/zeroed.
-      // If we want no warranty, we can set expiry to the purchase date itself or a fixed old date.
-      expiry = new Date(purchaseDate || new Date()); 
+      // Manual entries should not be treated as active warranty registrations.
+      // They are kept for service history only and flagged as Not Registered.
+      warrantyStatus = "Not Registered";
+      expiry = null; // null indicates no warranty expiration tracking
     } else {
       product = await Product.findOne({ serialNumber });
       if (!product) {
@@ -51,6 +51,7 @@ exports.registerWarranty = async (req, res) => {
     const registrationPayload = {
       productId: product ? product._id : null,
       isManual: Boolean(isManual),
+      warrantyStatus,
       modelNumber: modelNumber || (product ? product.modelNumber : ""),
       purchaseShopName: sanitizedShopName,
       carModelName: sanitizedCarModel,
@@ -115,8 +116,10 @@ exports.getRegistrations = async (req, res) => {
     const now = new Date();
     if (status === "active") {
       filter.expiryDate = { $gte: now };
+      filter.isManual = false;
     } else if (status === "expired") {
       filter.expiryDate = { $lt: now };
+      filter.isManual = false;
     }
 
     // Manual services
@@ -183,8 +186,8 @@ exports.getRegistrations = async (req, res) => {
     endOfToday.setHours(23, 59, 59, 999);
 
     const [activeCount, expiredCount, newTodayCount, manualCount, totalAll] = await Promise.all([
-      Registration.countDocuments({ expiryDate: { $gte: now } }),
-      Registration.countDocuments({ expiryDate: { $lt: now } }),
+      Registration.countDocuments({ expiryDate: { $gte: now }, isManual: false }),
+      Registration.countDocuments({ expiryDate: { $lt: now }, isManual: false }),
       Registration.countDocuments({ createdAt: { $gte: startOfToday, $lte: endOfToday } }),
       Registration.countDocuments({ isManual: true }),
       Registration.countDocuments(),
@@ -201,6 +204,17 @@ exports.getRegistrations = async (req, res) => {
       const obj = reg;
       obj.computedModelNumber = obj.modelNumber || (obj.productId ? obj.productId.modelNumber : "");
       obj.computedShopName = obj.purchaseShopName || "";
+      if (obj.isManual) {
+        obj.warrantyStatus = "Not Registered";
+        obj.expiryDate = null;
+      } else {
+        const now = new Date();
+        if (obj.expiryDate) {
+          obj.warrantyStatus = new Date(obj.expiryDate) >= now ? "Active" : "Expired";
+        } else {
+          obj.warrantyStatus = "Not Registered";
+        }
+      }
       return obj;
     });
 

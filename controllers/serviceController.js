@@ -56,10 +56,11 @@ exports.lookupServiceHistory = async (req, res) => {
        registration = await Registration.findOne({ serialNumber: query.serialNumber }).populate('productId');
     }
 
-    // 3. Stats (Claims are ONLY for registered products and NON-manual entries)
+    // 3. Stats
     const totalClaims = registration ? nonManualHistory.length : 0;
+    const serviceCount = serviceHistory.length;
     const pendingServices = registration ? nonManualHistory.filter(s => s.status !== "Returned").length : 0;
-    
+
     // Calculate total costs if needed, but let's just return history.
 
     // 4. Determine Current Warranty Status
@@ -69,21 +70,29 @@ exports.lookupServiceHistory = async (req, res) => {
     if (registration) {
       const regObj = registration.toObject ? registration.toObject() : registration;
 
-      // Use the stored expiryDate from the registration document
-      if (regObj.expiryDate) {
-        expiryDate = new Date(regObj.expiryDate);
-      } else if (regObj.purchaseDate) {
-        // Fallback: Compute expiry as 1 year from purchase if no stored expiry
-        const pDate = new Date(regObj.purchaseDate);
-        const months = regObj.productId?.warrantyPeriodMonths || 12;
-        expiryDate = new Date(pDate);
-        expiryDate.setMonth(expiryDate.getMonth() + months);
-      }
+      if (regObj.isManual) {
+        // Manual entries are service proxies and should not be treated as closed warranties
+        warrantyStatus = "Not Registered";
+        expiryDate = null;
+        registration.warrantyStatus = "Not Registered";
+        registration.expiryDate = null;
+      } else {
+        if (regObj.expiryDate) {
+          expiryDate = new Date(regObj.expiryDate);
+        } else if (regObj.purchaseDate) {
+          const pDate = new Date(regObj.purchaseDate);
+          const months = regObj.productId?.warrantyPeriodMonths || 12;
+          expiryDate = new Date(pDate);
+          expiryDate.setMonth(expiryDate.getMonth() + months);
+        }
 
-      if (expiryDate && new Date() > expiryDate) {
-        warrantyStatus = "Expired";
-      } else if (expiryDate) {
-        warrantyStatus = "Active";
+        if (expiryDate && new Date() > expiryDate) {
+          warrantyStatus = "Expired";
+        } else if (expiryDate) {
+          warrantyStatus = "Active";
+        }
+        registration.warrantyStatus = warrantyStatus;
+        registration.expiryDate = expiryDate;
       }
     } else {
       warrantyStatus = "Not Registered";
@@ -100,6 +109,8 @@ exports.lookupServiceHistory = async (req, res) => {
       serviceHistory: enrichedHistory,
       stats: {
         totalClaims,
+        serviceCount,
+        pendingServices,
         recentIssue: registration && nonManualHistory.length > 0 ? nonManualHistory[0].issueDescription : null,
         warrantyStatus,
         expiryDate
