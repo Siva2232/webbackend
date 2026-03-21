@@ -215,18 +215,26 @@ exports.updateServiceRecord = async (req, res) => {
     }
 
     if (updates.status === "In Progress") {
+      const techPart = updatedRecord.technicianName ? `by ${updatedRecord.technicianName} ` : "";
       await Notification.create({
         type: "SERVICE_IN_PROGRESS",
-        message: `In Progress: ${updatedRecord.customerName} (${updatedRecord.serialNumber || updatedRecord.modelNumber}) is now in progress`,
-        data: { productId: updatedRecord._id }
+        message: `In Progress: ${techPart}${updatedRecord.customerName} (${updatedRecord.serialNumber || updatedRecord.modelNumber}) is now being handled`,
+        data: { 
+          productId: updatedRecord._id,
+          technicianName: updatedRecord.technicianName 
+        }
       });
     }
 
     if (updates.status === "Returned") {
+      const techPart = updatedRecord.technicianName ? `by ${updatedRecord.technicianName} ` : "";
       await Notification.create({
         type: "SERVICE_RETURNED",
-        message: `Returned to Customer: ${updatedRecord.customerName} (${updatedRecord.serialNumber || updatedRecord.modelNumber}) has been returned`,
-        data: { productId: updatedRecord._id }
+        message: `Returned to Customer: ${techPart}${updatedRecord.customerName} (${updatedRecord.serialNumber || updatedRecord.modelNumber}) has been returned`,
+        data: { 
+          productId: updatedRecord._id,
+          technicianName: updatedRecord.technicianName 
+        }
       });
     }
 
