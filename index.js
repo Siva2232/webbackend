@@ -103,7 +103,19 @@ app.use("/api", limiter);
 app.use(express.json({ limit: "10kb" }));
 
 // Mongo sanitize (prevents query selector injection)
-app.use(mongoSanitize());
+// Use explicit sanitizer on safe writable objects to avoid express 5 getter-only request.query issue.
+app.use((req, res, next) => {
+  ['body', 'params', 'headers'].forEach((prop) => {
+    if (req[prop] && typeof req[prop] === 'object') {
+      try {
+        mongoSanitize.sanitize(req[prop]);
+      } catch (err) {
+        console.warn(`Sanitize failed for req.${prop}:`, err.message);
+      }
+    }
+  });
+  next();
+});
 
 // Prevent HTTP parameter pollution
 app.use(hpp());
