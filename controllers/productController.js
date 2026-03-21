@@ -74,6 +74,11 @@ exports.deleteProduct = async (req, res) => {
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: "Product not found" });
 
+    const ageMs = Date.now() - new Date(product.createdAt).getTime();
+    if (ageMs > 24 * 60 * 60 * 1000) {
+      return res.status(403).json({ message: "Product deletions are allowed only within 24 hours of creation." });
+    }
+
     await product.deleteOne();
     res.json({ message: "Product deleted" });
   } catch (error) {
@@ -89,8 +94,30 @@ exports.deleteProducts = async (req, res) => {
       return res.status(400).json({ message: "No product IDs provided" });
     }
 
-    const { deletedCount } = await Product.deleteMany({ _id: { $in: ids } });
-    res.json({ message: `Deleted ${deletedCount} products`, deletedCount });
+    const productsToDelete = await Product.find({ _id: { $in: ids } });
+    const deletable = [];
+    const blocked = [];
+
+    const maxAgeMs = 24 * 60 * 60 * 1000;
+    productsToDelete.forEach((product) => {
+      const ageMs = Date.now() - new Date(product.createdAt).getTime();
+      if (ageMs <= maxAgeMs) {
+        deletable.push(product._id);
+      } else {
+        blocked.push(product._id);
+      }
+    });
+
+    if (deletable.length === 0) {
+      return res.status(403).json({ message: "No products were deleted. Deletion is allowed only within 24 hours of creation." });
+    }
+
+    const { deletedCount } = await Product.deleteMany({ _id: { $in: deletable } });
+    res.json({
+      message: `Deleted ${deletedCount} products.${blocked.length > 0 ? ` ${blocked.length} product(s) were older than 24 hours and were not deleted.` : ''}`,
+      deletedCount,
+      blockedCount: blocked.length,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
