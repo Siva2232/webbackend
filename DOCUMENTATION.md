@@ -158,10 +158,23 @@ npm run dev
 - Password verify for deletion operations.
 - Business logic ensures protected updates on core data.
 - Use HTTPS on production for all endpoints.
-- `express-rate-limit` configured on `/api`.
-- CORS restricted to `FRONTEND_URL` only.
-- `app.use(express.json({ limit: '10kb' }))` to limit payload size.
-- HTTP request logging with `morgan('combined')` for auditing.
+
+### Security checklist
+- [x] HTTPS enforced in production environment.
+- [x] Strong JWT secret in `JWT_SECRET` and rolling keys as needed.
+- [x] `express-rate-limit` installed (`/api` endpoint at 100 requests/15m).
+- [x] `helmet`, `xss-clean`, `express-mongo-sanitize`, `hpp` configured in backend.
+- [x] `express-validator` on all request payloads in auth/product/registration/service routes.
+- [x] Global 404 + error handler in `index.js`.
+- [x] Token auto logout on 401 in axios interceptor.
+- [x] CORS restricted to `FRONTEND_URL` only (production domain blocklist).
+- [x] Request size limit in body parser `express.json({ limit: '10kb' })`.
+- [x] HTTP request logging with `morgan("combined")` for login/audit/security events.
+
+### CI / security checks
+- Add `webbackend/package.json` script: `npm run audit` → `npm audit --audit-level=high`.
+- Add `webbackend/package.json` script: `npm run security-check` → `npm run audit && npm run test`.
+- Run `npm run security-check` before merge or deploy.
 
 ### To further harden
 - Replace base64 token with secure JWT/HMAC URL token.
