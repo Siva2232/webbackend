@@ -15,47 +15,8 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-// Remove identifying server header
-app.disable("x-powered-by");
-
-// Security headers (Helmet default plus stricter HSTS and CSP for API + SPA)
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'", process.env.VITE_API_URL || "https://webbackend-15d2.onrender.com"],
-      },
-    },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-    frameguard: { action: 'deny' },
-  })
-);
-
-// XSS sanitization (custom middleware — xss-clean is incompatible with Express 5)
-const xssFilters = require("xss");
-const sanitizeValue = (val) => {
-  if (typeof val === "string") return xssFilters(val);
-  if (val && typeof val === "object") {
-    for (const key of Object.keys(val)) {
-      val[key] = sanitizeValue(val[key]);
-    }
-  }
-  return val;
-};
-app.use((req, _res, next) => {
-  if (req.body) sanitizeValue(req.body);
-  if (req.params) sanitizeValue(req.params);
-  next();
-});
+// Security headers
+app.use(helmet());
 
 // Rate limit
 const limiter = rateLimit({
@@ -108,24 +69,17 @@ app.use("/api", limiter);
 // Body parser
 app.use(express.json({ limit: "10kb" }));
 
-// Mongo sanitize (prevents query selector injection)
-app.use(mongoSanitize());
+// Mongo sanitize
+app.use((req, res, next) => {
+  mongoSanitize.sanitize(req.body);
+  mongoSanitize.sanitize(req.params);
+  mongoSanitize.sanitize(req.headers);
+  mongoSanitize.sanitize(req.query);
+  next();
+});
 
 // Prevent HTTP parameter pollution
 app.use(hpp());
-
-// Rate limit already applied on /api
-
-// 404 handler
-app.use((req, res, next) => {
-  res.status(404).json({ message: "Endpoint not found" });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
-  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
-});
 
 // ============================
 // ROUTES
