@@ -5,6 +5,7 @@ const protect = require("../middleware/authMiddleware");
 
 router.get("/unread", protect, getUnreadCount);
 router.get("/", protect, getNotifications);
+router.get("/stream", protect, streamNotifications);
 router.put("/:id/read", protect, markAsRead);
 router.delete("/:id", protect, deleteNotification);
 

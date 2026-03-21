@@ -4,7 +4,7 @@ const notificationSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["REGISTRATION", "WARRANTY_EXPIRY", "SERVICE_UPDATE"],
+      enum: ["REGISTRATION", "WARRANTY_EXPIRY", "SERVICE_UPDATE", "SERVICE_IN_PROGRESS", "SERVICE_RETURNED"],
       default: "REGISTRATION",
     },
     message: {

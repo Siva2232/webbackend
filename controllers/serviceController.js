@@ -1,6 +1,7 @@
 const ServiceRecord = require("../models/ServiceRecord");
 const Registration = require("../models/Registration");
 const Notification = require("../models/Notification");
+const notificationEmitter = require("../utils/notificationStreamer");
 
 // Search Service History & Warranty Status
 exports.lookupServiceHistory = async (req, res) => {
@@ -174,10 +175,13 @@ exports.createServiceRecord = async (req, res) => {
 
     const savedService = await newService.save();
 
-    await Notification.create({
+    const newNotification = await Notification.create({
       type: "SERVICE_UPDATE",
-      message: `Service Alert: ${customerName} reported issue for ${serialNumber}`,
+      message: `New Service Request: ${customerName} submitted an issue for ${serialNumber || modelNumber}`,
+      data: { productId: savedService._id },
     });
+
+    notificationEmitter.emit("notification", newNotification);
 
     res.status(201).json(savedService);
 
@@ -211,6 +215,24 @@ exports.updateServiceRecord = async (req, res) => {
     
     if (!updatedRecord) {
         return res.status(404).json({ message: "Record not found" });
+    }
+
+    if (updates.status === "In Progress") {
+      const inProgressNotification = await Notification.create({
+        type: "SERVICE_IN_PROGRESS",
+        message: `In Progress: ${updatedRecord.customerName} (${updatedRecord.serialNumber || updatedRecord.modelNumber}) is now in progress`,
+        data: { productId: updatedRecord._id },
+      });
+      notificationEmitter.emit("notification", inProgressNotification);
+    }
+
+    if (updates.status === "Returned") {
+      const returnedNotification = await Notification.create({
+        type: "SERVICE_RETURNED",
+        message: `Returned to Customer: ${updatedRecord.customerName} (${updatedRecord.serialNumber || updatedRecord.modelNumber}) has been returned`,
+        data: { productId: updatedRecord._id },
+      });
+      notificationEmitter.emit("notification", returnedNotification);
     }
 
     res.json(updatedRecord);
