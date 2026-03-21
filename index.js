@@ -114,19 +114,6 @@ app.use(mongoSanitize());
 // Prevent HTTP parameter pollution
 app.use(hpp());
 
-// Rate limit already applied on /api
-
-// 404 handler
-app.use((req, res, next) => {
-  res.status(404).json({ message: "Endpoint not found" });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
-  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
-});
-
 // ============================
 // ROUTES
 // ============================
@@ -140,6 +127,17 @@ app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.get("/", (req, res) => {
   res.send("Warranty Tracker API Running");
+});
+
+// 404 handler (must be AFTER routes)
+app.use((req, res, next) => {
+  res.status(404).json({ message: "Endpoint not found" });
+});
+
+// Global error handler (must be last)
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
 });
 
 const PORT = process.env.PORT || 5000;
