@@ -1,102 +1,86 @@
-# Lancaster Warranty System Documentation
+# Lancaster Warranty System - Backend Documentation
 
-## Overview
-
-A complete A-to-Z documentation for both frontend and backend. This project is a full-stack system for warranty registration, product management, and service tracking.
-
-- Frontend: React (Vite), Tailwind CSS, lucide-react icons, API calls with axios, mobile-friendly UI.
-- Backend: Node.js + Express + MongoDB (Mongoose), JWT auth, product/registration/service management, QR generation.
+## 🚀 Overview
+The backend is a Node.js + Express application built on MongoDB. It provides the core business logic for warranty registration, product tracking, service history, and administrator functions.
 
 ---
 
-## Table of Contents
+## 🛠 Features
 
-1. [Project Setup](#project-setup)
-2. [Frontend Architecture](#frontend-architecture)
-3. [Backend Architecture](#backend-architecture)
-4. [Core Flows](#core-flows)
-5. [API Endpoints](#api-endpoints)
-6. [Security](#security)
-7. [Deployment](#deployment)
-8. [Troubleshooting](#troubleshooting)
+### 1. **Authentication & Security** (Updated)
+- **JWT-Based Protection**: All admin and service routes are protected via a `protect` middleware.
+- **Failed Login Lockout**: 
+  - 3 failed attempts = 15-minute lock.
+  - Subsequent failures = 1-hour lock.
+  - Tracked in `Admin` model via `loginAttempts` and `lockUntil`.
+- **Infrastructure Protection**:
+  - `express-rate-limit`: Global API limit (100/15min) and Strict Login limit (10/15min).
+  - `helmet`: Critical security headers.
+  - `express-mongo-sanitize`: Prevents NoSQL Injections.
+  - `hpp`: Prevents HTTP Parameter Pollution.
+- **XSS Sanitization**: User inputs are sanitized using the `xss` library before saving.
 
----
+### 2. **Product Management**
+- **Bulk Creation**: Create hundreds of products with unique serial numbers.
+- **QR Generation**: Generates labels with secure base64-encoded serial numbers (`s` param).
+- **History Tracking**: Links products to customer registrations and service records.
 
-## Project Setup
+### 3. **Warranty Registration**
+- **Digital Registration**: Customers scan a QR code to register.
+- **Expiry Logic**: Automatically calculates warranty end dates based on product type.
+- **Manual Overrides**: Service centers can create records for non-registered legacy products.
 
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- MongoDB running locally or connection string for cloud
-
-### Setup frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Setup backend
-
-```bash
-cd webbackend
-npm install
-npm run dev
-```
-
-- `webbackend/.env` should include `MONGO_URI`, `JWT_SECRET`, `FRONTEND_URL` etc.
+### 4. **Service Records**
+- **Workflow-Driven**: Track products from "Store Accept" to "Store Send".
+- **Real-Time Status**: Customers lookup status via serial number.
 
 ---
 
-## Frontend Architecture
+## 📂 Project Structure
 
-### Folder structure
-
-- `src/main.jsx` – app entry point.
-- `src/App.jsx` – route container.
-- `src/api/axios.js` – axios instance with baseURL and interceptors.
-- `src/Context/AuthContext.jsx` – auth methods and user state.
-- `src/Context/DataContext.jsx` – data fetch caching for customers/products.
-- `src/pages`:
-  - `CustomerHome.jsx` - customer portal.
-  - `RegisterWarranty.jsx` - registration flow + QR scanning.
-  - `Products.jsx` - admin product management + QR label generation.
-  - `Customers.jsx` - admin customer management.
-  - `ServiceTracker.jsx` etc.
-- `src/components` – modal and UI components.
-- `src/layouts` – page layouts, navbars, footer.
-
-### Key features
-
-- QR generator in backend, displayed in frontend as image.
-- `RegisterWarranty` uses `model` + base64 `s` token instead of plain `serial` in URL.
-- Product/customer list has filter, search, pagination, selection, delete.
-- Bulk product generation and print helpers.
-
-### QR security flow
-
-- `Products.jsx` uses:
-  - `href="/customer-home?model=${encodeURIComponent(model)}&s=${btoa(serial)}"`
-- `CustomerHome.jsx` decodes `s` with `atob` and fetches model from backend.
-- `RegisterWarranty.jsx` uses `s` decoded to serial for validation and lock.
+- `index.js`: App initialization, security middleware, and route registration.
+- `config/db.js`: MongoDB connection setup.
+- `controllers/`: 
+  - `authController.js`: Login, Lockout, and Password resets.
+  - `productController.js`: CRUD for products and bulk operations.
+  - `registrationController.js`: Customer registration and digital warranties.
+  - `serviceController.js`: Service history and repair tracking.
+  - `statsController.js`: Dashboard analytics.
+- `models/`: Mongoose schemas (`Admin`, `Product`, `Registration`, `ServiceRecord`, `Notification`).
+- `routes/`: Express router definitions.
+- `utils/qrGenerator.js`: Utility for generating secure QR code data.
 
 ---
 
-## Backend Architecture
+## 📡 API Endpoints
 
-### Folder structure
+### **Auth**
+- `POST /api/auth/login`: Admin login with lockout tracking.
+- `POST /api/auth/register`: Create new admin (requires auth).
+- `POST /api/auth/forgot-password`: Update password.
 
-- `index.js` - app main with routes and middleware.
-- `config/db.js` - mongoose connect.
-- `controllers` - logic by domain.
-   - `productController.js`: create/get/delete + bulk and QR generation.
-   - `registrationController.js`: register/update/delete warranties.
-   - `serviceController.js`, `statsController.js`, `notificationController.js`, `authController.js`.
-- `models`: `Product.js`, `Registration.js`, `ServiceRecord.js`, `Admin.js`, etc.
-- `routes`: Express routes using controllers.
-- `middleware/authMiddleware.js`: JWT route protection.
-- `utils/qrGenerator.js`: builds QR url with `model` + base64 `s`.
+### **Products**
+- `GET /api/products`: List all products (Protected).
+- `POST /api/products`: Create a single product (Protected).
+- `POST /api/products/bulk`: Bulk create products (Protected).
+- `DELETE /api/products/:id`: Delete product (Protected).
+
+### **Registrations**
+- `POST /api/register`: Public endpoint for warranty sign-up.
+- `GET /api/register`: List registrations (Protected).
+
+### **Service**
+- `GET /api/service/history`: Lookup status by serial number (Public).
+- `POST /api/service`: Add new repair record (Protected).
+
+---
+
+## ⚙️ Environment Variables (.env)
+- `PORT`: Server port (default 5000).
+- `MONGO_URI`: MongoDB connection string.
+- `JWT_SECRET`: Random string for signing tokens.
+- `FRONTEND_URL`: URL of the React app for CORS.
+
 
 ### QR logic
 
