@@ -6,7 +6,6 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const hpp = require("hpp");
 const mongoSanitize = require("express-mongo-sanitize");
-const morgan = require("morgan");
 const connectDB = require("./config/db");
 
 dotenv.config({ path: path.join(__dirname, ".env") });
@@ -18,9 +17,6 @@ app.set("trust proxy", 1);
 
 // Remove identifying server header
 app.disable("x-powered-by");
-
-// Request logging (security events)
-app.use(morgan("combined"));
 
 // Security headers (Helmet default plus stricter HSTS and CSP for API + SPA)
 app.use(
@@ -63,44 +59,34 @@ const limiter = rateLimit({
 // ============================
 
 const allowedOrigins = [
-  (process.env.FRONTEND_URL || "").replace(/\/$/, ""),
+  process.env.FRONTEND_URL,
   "https://warrantyweb.netlify.app",
   "http://localhost:5173",
-  "http://localhost:5000",
 ].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow non-browser clients or same-origin server-to-server calls
-    if (!origin) {
-      return callback(null, true);
-    }
+    if (!origin) return callback(null, true);
 
     const normalizedOrigin = origin.replace(/\/$/, "");
-    const isAllowed = allowedOrigins.some((allowed) => allowed.replace(/\/$/, "") === normalizedOrigin);
+
+    const isAllowed = allowedOrigins.some(
+      (allowed) => allowed.replace(/\/$/, "") === normalizedOrigin
+    );
 
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.warn("Blocked by CORS:", origin);
-      callback(new Error(`CORS blocked: ${origin}`));
+      console.log("Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 204,
-  preflightContinue: false,
 };
 
 app.use(cors(corsOptions));
-// Enable pre-flight for all routes
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    return cors(corsOptions)(req, res, next);
-  }
-  next();
-});
 app.use("/api", limiter);
 
 // ============================
@@ -113,6 +99,19 @@ app.use(mongoSanitize());
 
 // Prevent HTTP parameter pollution
 app.use(hpp());
+
+// Rate limit already applied on /api
+
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).json({ message: "Endpoint not found" });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
+});
 
 // ============================
 // ROUTES
@@ -127,17 +126,6 @@ app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.get("/", (req, res) => {
   res.send("Warranty Tracker API Running");
-});
-
-// 404 handler (must be AFTER routes)
-app.use((req, res, next) => {
-  res.status(404).json({ message: "Endpoint not found" });
-});
-
-// Global error handler (must be last)
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
-  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
 });
 
 const PORT = process.env.PORT || 5000;

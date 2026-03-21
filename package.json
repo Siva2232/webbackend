@@ -7,9 +7,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed": "node seedAdmin.js",
-    "test": "echo \"No tests configured - run lint or add test runner\" && exit 0",
-    "audit": "npm audit --audit-level=high",
-    "security-check": "npm run audit && npm run test"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
