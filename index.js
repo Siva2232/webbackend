@@ -66,6 +66,7 @@ const allowedOrigins = [
   (process.env.FRONTEND_URL || "").replace(/\/$/, ""),
   "https://warrantyweb.netlify.app",
   "http://localhost:5173",
+  "http://localhost:5000",
 ].filter(Boolean);
 
 const corsOptions = {
@@ -93,7 +94,13 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+// Enable pre-flight for all routes
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return cors(corsOptions)(req, res, next);
+  }
+  next();
+});
 app.use("/api", limiter);
 
 // ============================
