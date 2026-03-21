@@ -1,36 +1,4 @@
 const Notification = require("../models/Notification");
-const notificationEmitter = require("../utils/notificationStreamer");
-
-// Server-Sent Events stream
-exports.streamNotifications = (req, res) => {
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    Connection: "keep-alive",
-  });
-  res.flushHeaders();
-
-  const sendEvent = (notification) => {
-    res.write(`event: notification\n`);
-    res.write(`data: ${JSON.stringify(notification)}\n\n`);
-  };
-
-  const onNotification = (notification) => sendEvent(notification);
-
-  notificationEmitter.on("notification", onNotification);
-
-  // ping every 45 seconds to keep connection alive
-  const pingInterval = setInterval(() => {
-    res.write(`event: ping\n`);
-    res.write(`data: {\"status\":\"alive\"}\n\n`);
-  }, 45000);
-
-  req.on("close", () => {
-    clearInterval(pingInterval);
-    notificationEmitter.removeListener("notification", onNotification);
-    res.end();
-  });
-};
 
 // Get unread count
 exports.getUnreadCount = async (req, res) => {
