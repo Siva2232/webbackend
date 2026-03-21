@@ -19,7 +19,7 @@ app.set("trust proxy", 1);
 // Remove identifying server header
 app.disable("x-powered-by");
 
-// HTTP request logging (security/audit events)
+// Request logging (security events)
 app.use(morgan("combined"));
 
 // Security headers (Helmet default plus stricter HSTS and CSP for API + SPA)
@@ -45,9 +45,7 @@ app.use(
 );
 
 // XSS and Input sanitization
-// NOTE: xss-clean currently breaks request query on newer Node/Express versions (getter-only request.query).
-// Use express-mongo-sanitize + per-field xss() where needed (controllers) instead.
-// app.use(require('xss-clean')());
+app.use(require('xss-clean')());
 
 // Rate limit
 const limiter = rateLimit({
@@ -65,36 +63,37 @@ const limiter = rateLimit({
 // ============================
 
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  (process.env.FRONTEND_URL || "").replace(/\/$/, ""),
+  "https://warrantyweb.netlify.app",
+  "http://localhost:5173",
 ].filter(Boolean);
-
-if (allowedOrigins.length === 0) {
-  console.warn("Warning: FRONTEND_URL is not set. CORS protection may be disabled.");
-}
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow non-browser calls (e.g., Postman)
+    // Allow non-browser clients or same-origin server-to-server calls
+    if (!origin) {
+      return callback(null, true);
+    }
 
     const normalizedOrigin = origin.replace(/\/$/, "");
-
-    const isAllowed = allowedOrigins.some(
-      (allowed) => allowed.replace(/\/$/, "") === normalizedOrigin
-    );
+    const isAllowed = allowedOrigins.some((allowed) => allowed.replace(/\/$/, "") === normalizedOrigin);
 
     if (isAllowed) {
       callback(null, true);
     } else {
-      console.log("Blocked by CORS:", origin);
-      callback(new Error("Not allowed by CORS"));
+      console.warn("Blocked by CORS:", origin);
+      callback(new Error(`CORS blocked: ${origin}`));
     }
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
+  preflightContinue: false,
 };
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use("/api", limiter);
 
 // ============================
@@ -103,19 +102,7 @@ app.use("/api", limiter);
 app.use(express.json({ limit: "10kb" }));
 
 // Mongo sanitize (prevents query selector injection)
-// Use explicit sanitizer on safe writable objects to avoid express 5 getter-only request.query issue.
-app.use((req, res, next) => {
-  ['body', 'params', 'headers'].forEach((prop) => {
-    if (req[prop] && typeof req[prop] === 'object') {
-      try {
-        mongoSanitize.sanitize(req[prop]);
-      } catch (err) {
-        console.warn(`Sanitize failed for req.${prop}:`, err.message);
-      }
-    }
-  });
-  next();
-});
+app.use(mongoSanitize());
 
 // Prevent HTTP parameter pollution
 app.use(hpp());

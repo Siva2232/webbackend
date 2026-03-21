@@ -163,7 +163,7 @@ npm run dev
 - [x] HTTPS enforced in production environment.
 - [x] Strong JWT secret in `JWT_SECRET` and rolling keys as needed.
 - [x] `express-rate-limit` installed (`/api` endpoint at 100 requests/15m).
-- [x] `helmet`, `express-mongo-sanitize`, `hpp` configured in backend (`xss-clean` removed due to Node/Express query getter compatibility issue).
+- [x] `helmet`, `xss-clean`, `express-mongo-sanitize`, `hpp` configured in backend.
 - [x] `express-validator` on all request payloads in auth/product/registration/service routes.
 - [x] Global 404 + error handler in `index.js`.
 - [x] Token auto logout on 401 in axios interceptor.
