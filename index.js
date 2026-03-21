@@ -45,7 +45,9 @@ app.use(
 );
 
 // XSS and Input sanitization
-app.use(require('xss-clean')());
+// NOTE: xss-clean currently breaks request query on newer Node/Express versions (getter-only request.query).
+// Use express-mongo-sanitize + per-field xss() where needed (controllers) instead.
+// app.use(require('xss-clean')());
 
 // Rate limit
 const limiter = rateLimit({
