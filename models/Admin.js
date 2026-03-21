@@ -18,9 +18,22 @@ const adminSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    loginAttempts: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );
+
+// Virtual property to check if user is currently locked out
+adminSchema.virtual("isLocked").get(function () {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+});
 
 // Hash password before saving
 adminSchema.pre("save", async function () {

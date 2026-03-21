@@ -25,6 +25,12 @@ const limiter = rateLimit({
   message: "Too many requests from this IP, please try again after 15 minutes",
 });
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // 10 attempts per 15 mins
+  message: "Too many failed login attempts, please try again after 15 minutes",
+});
+
 // ============================
 // CORS CONFIGURATION
 // ============================
@@ -63,6 +69,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use("/api", limiter);
+app.use("/api/auth/login", authLimiter);
 
 // ============================
 
