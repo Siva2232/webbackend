@@ -158,6 +158,10 @@ npm run dev
 - Password verify for deletion operations.
 - Business logic ensures protected updates on core data.
 - Use HTTPS on production for all endpoints.
+- `express-rate-limit` configured on `/api`.
+- CORS restricted to `FRONTEND_URL` only.
+- `app.use(express.json({ limit: '10kb' }))` to limit payload size.
+- HTTP request logging with `morgan('combined')` for auditing.
 
 ### To further harden
 - Replace base64 token with secure JWT/HMAC URL token.
@@ -201,7 +205,37 @@ npm run dev
 - `npm test` currently placeholder
 
 ---
+## Today’s Updates (21 March 2026)
 
+### Frontend
+- Added functional "Forgot password" flow in `frontend/src/pages/AdminLogin.jsx`.
+- New modal form includes email + current password + new password.
+- Added visual status feedback for success/failure in modal (`ShieldCheck`, red error banner).
+- Fixed modal submission scope: moved modal outside login form so password reset does not trigger login submission.
+- Updated API call to `POST /api/auth/forgot-password`.
+- Added `ShieldCheck` import to avoid runtime icon errors.
+
+### Backend
+- Replaced `changePassword` with `forgotPassword` in `webbackend/controllers/authController.js`.
+- `forgotPassword` verifies current password, hashes new password with bcrypt, and updates using `findByIdAndUpdate` (robust against pre-save double-hashing issues).
+- Added route `POST /api/auth/forgot-password` in `webbackend/routes/authRoutes.js`.
+- Added seeded admin user `admin1@lancaster.com` in `webbackend/seedAdmin.js`.
+- Reset all admin passwords in DB to `lancaster@123` with correct hashing.
+
+### Notifications
+- Enhanced `Navbar` and service logic to auto-load notifications (unread count + list) without manual click; the bell count refreshes every 10 seconds.
+- Added service-specific notifications for `SERVICE_IN_PROGRESS` and `SERVICE_RETURNED` with technician name in message.
+
+### QR Expiry and Service Dashboard
+- `Products.jsx` now marks QR records created more than 24 hours ago as `Locked`, with `Deletable` only for records within the first 24 hours.
+- Backend checks in `productController` reject deletes beyond 24h and returns count details for `deleted` vs `blocked`.
+- AdminFooter and navbar now support a dedicated **Service dashboard** context with minimal service-only nav links (SERVICE_PORTAL mode) separated from main admin links.
+
+### Verification
+- Frontend production build passes: `vite build` success verified.
+- No more 400 login errors from forgot-password flow.
+
+---
 ## Conclusion
 
 This file is the complete A-Z guidance for your app. Modify with your own environment values and continue iteration.

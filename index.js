@@ -6,6 +6,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const hpp = require("hpp");
 const mongoSanitize = require("express-mongo-sanitize");
+const morgan = require("morgan");
 const connectDB = require("./config/db");
 
 dotenv.config({ path: path.join(__dirname, ".env") });
@@ -15,8 +16,36 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-// Security headers
-app.use(helmet());
+// Remove identifying server header
+app.disable("x-powered-by");
+
+// HTTP request logging (security/audit events)
+app.use(morgan("combined"));
+
+// Security headers (Helmet default plus stricter HSTS and CSP for API + SPA)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", process.env.VITE_API_URL || "https://webbackend-15d2.onrender.com"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: { action: 'deny' },
+  })
+);
+
+// XSS and Input sanitization
+app.use(require('xss-clean')());
 
 // Rate limit
 const limiter = rateLimit({
@@ -35,13 +64,15 @@ const limiter = rateLimit({
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "https://warrantyweb.netlify.app",
-  "http://localhost:5173",
 ].filter(Boolean);
+
+if (allowedOrigins.length === 0) {
+  console.warn("Warning: FRONTEND_URL is not set. CORS protection may be disabled.");
+}
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // allow non-browser calls (e.g., Postman)
 
     const normalizedOrigin = origin.replace(/\/$/, "");
 
@@ -69,17 +100,24 @@ app.use("/api", limiter);
 // Body parser
 app.use(express.json({ limit: "10kb" }));
 
-// Mongo sanitize
-app.use((req, res, next) => {
-  mongoSanitize.sanitize(req.body);
-  mongoSanitize.sanitize(req.params);
-  mongoSanitize.sanitize(req.headers);
-  mongoSanitize.sanitize(req.query);
-  next();
-});
+// Mongo sanitize (prevents query selector injection)
+app.use(mongoSanitize());
 
 // Prevent HTTP parameter pollution
 app.use(hpp());
+
+// Rate limit already applied on /api
+
+// 404 handler
+app.use((req, res, next) => {
+  res.status(404).json({ message: "Endpoint not found" });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
+});
 
 // ============================
 // ROUTES
