@@ -57,8 +57,8 @@ exports.loginAdmin = async (req, res) => {
   }
 };
 
-// Change Password
-exports.changePassword = async (req, res) => {
+// Forgot / Reset Password
+exports.forgotPassword = async (req, res) => {
   try {
     const { email, oldPassword, newPassword } = req.body;
 
@@ -66,25 +66,29 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: "Please provide all required fields." });
     }
 
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters." });
+    }
+
     const admin = await Admin.findOne({ email });
     if (!admin) {
       return res.status(404).json({ message: "Admin account not found." });
     }
 
-    // Since this is technically "Forgot Password" but asking for "Old Password", 
-    // we verify the old one first.
     const isMatch = await bcrypt.compare(oldPassword, admin.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Incorrect old password." });
+      return res.status(400).json({ message: "Incorrect current password." });
     }
 
-    // Update password (Mongoose pre-save hook handles hashing)
-    admin.password = newPassword;
-    await admin.save();
+    // Manually hash and use findByIdAndUpdate to bypass pre-save hook (avoids double-hashing)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await Admin.findByIdAndUpdate(admin._id, { password: hashedPassword });
 
     res.json({ message: "Password updated successfully." });
   } catch (error) {
-    console.error("Change password error:", error);
+    console.error("Forgot password error:", error);
     res.status(500).json({ message: "Internal server error." });
   }
 };
