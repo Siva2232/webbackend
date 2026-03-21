@@ -40,8 +40,22 @@ app.use(
   })
 );
 
-// XSS and Input sanitization
-app.use(require('xss-clean')());
+// XSS sanitization (custom middleware — xss-clean is incompatible with Express 5)
+const xssFilters = require("xss");
+const sanitizeValue = (val) => {
+  if (typeof val === "string") return xssFilters(val);
+  if (val && typeof val === "object") {
+    for (const key of Object.keys(val)) {
+      val[key] = sanitizeValue(val[key]);
+    }
+  }
+  return val;
+};
+app.use((req, _res, next) => {
+  if (req.body) sanitizeValue(req.body);
+  if (req.params) sanitizeValue(req.params);
+  next();
+});
 
 // Rate limit
 const limiter = rateLimit({
