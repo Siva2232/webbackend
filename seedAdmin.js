@@ -9,24 +9,31 @@ const seedAdmin = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("Connected to MongoDB");
 
-    const email = "admin@lancaster.com";
-    const password = "lancaster@123";
+    const admins = [
+      {
+        name: "Super Admin",
+        email: "admin@lancaster.com",
+        password: "lancaster@123",
+      },
+      {
+        name: "System Admin",
+        email: "admin1@lancaster.com",
+        password: "lancaster@123",
+      }
+    ];
 
-    const adminExists = await Admin.findOne({ email });
-    if (adminExists) {
-      console.log("Admin already exists!");
-      process.exit();
+    for (const adminData of admins) {
+      const adminExists = await Admin.findOne({ email: adminData.email });
+      if (adminExists) {
+        console.log(`Admin ${adminData.email} already exists!`);
+        continue;
+      }
+
+      await Admin.create(adminData);
+      console.log(`Admin account created: ${adminData.email}`);
     }
 
-    await Admin.create({
-      name: "Super Admin",
-      email: email,
-      password: password,
-    });
-
-    console.log("Admin account created successfully!");
-    console.log("Email: " + email);
-    console.log("Password: " + password);
+    console.log("Seeding process completed!");
     process.exit();
   } catch (error) {
     console.error("Error seeding admin:", error);

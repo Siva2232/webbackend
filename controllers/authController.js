@@ -56,3 +56,35 @@ exports.loginAdmin = async (req, res) => {
     res.status(500).json({ message: error.message || "Internal server error" });
   }
 };
+
+// Change Password
+exports.changePassword = async (req, res) => {
+  try {
+    const { email, oldPassword, newPassword } = req.body;
+
+    if (!email || !oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Please provide all required fields." });
+    }
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ message: "Admin account not found." });
+    }
+
+    // Since this is technically "Forgot Password" but asking for "Old Password", 
+    // we verify the old one first.
+    const isMatch = await bcrypt.compare(oldPassword, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect old password." });
+    }
+
+    // Update password (Mongoose pre-save hook handles hashing)
+    admin.password = newPassword;
+    await admin.save();
+
+    res.json({ message: "Password updated successfully." });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
