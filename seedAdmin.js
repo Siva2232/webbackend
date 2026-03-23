@@ -19,6 +19,11 @@ const seedAdmin = async () => {
         name: "System Admin",
         email: "admin1@lancaster.com",
         password: "lancaster@123",
+      },
+      {
+        name: "Service Dashboard",
+        email: "service@lancaster.com",
+        password: "service@123",
       }
     ];
 
