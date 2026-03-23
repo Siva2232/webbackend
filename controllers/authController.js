@@ -51,29 +51,23 @@ exports.loginAdmin = async (req, res) => {
       // Increment login attempts
       admin.loginAttempts += 1;
 
-      let lockUntil = null;
       if (admin.loginAttempts >= 3) {
-        // After 3 failed attempts, set lock period
-        // The user request says: "if 3 attempt failed thenafter 15 minutes then ebalbe to retry... ater 3 attempt faied 1 hr wait or call support"
-        // Interpreting as: 3rd failed attempt = 15 min lock, subsequent failed attempts (or if we want a stricter lock) = 1 hr.
-        // Let's implement: 3 failed attempts = 15 min. 4+ failed attempts = 1 hour.
-        const lockDuration = admin.loginAttempts === 3 ? 15 * 60 * 1000 : 60 * 60 * 1000;
-        lockUntil = Date.now() + lockDuration;
-        admin.lockUntil = lockUntil;
+        // Lock account for 60 minutes after 3 failed attempts
+        admin.lockUntil = Date.now() + 60 * 60 * 1000;
       }
 
       await admin.save();
 
-      const remainingAttempts = 3 - admin.loginAttempts;
-      let message = "Invalid credentials";
+      const remainingAttempts = Math.max(0, 3 - admin.loginAttempts);
+      let message;
+
       if (remainingAttempts > 0) {
-        message += `. You have ${remainingAttempts} attempts remaining.`;
+        message = `Invalid credentials. You have ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`;
       } else {
-        const lockTime = admin.loginAttempts === 3 ? "15 minutes" : "1 hour";
-        message = `Too many failed attempts. Account locked for ${lockTime}. Please contact support if issues persist.`;
+        message = `Account is locked. Please try again after 60 minutes or contact support.`;
       }
 
-      return res.status(400).json({ message });
+      return res.status(403).json({ message });
     }
 
     // Reset login attempts on successful login
