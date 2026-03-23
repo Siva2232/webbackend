@@ -36,6 +36,13 @@ exports.loginAdmin = async (req, res) => {
     const admin = await Admin.findOne({ email });
     if (!admin) return res.status(400).json({ message: "Invalid credentials" });
 
+    // Reset lock if the lock-period has expired
+    if (admin.lockUntil && admin.lockUntil <= Date.now()) {
+      admin.loginAttempts = 0;
+      admin.lockUntil = undefined;
+      await admin.save();
+    }
+
     // Check if account is locked
     if (admin.lockUntil && admin.lockUntil > Date.now()) {
       const remainingTime = Math.ceil((admin.lockUntil - Date.now()) / 60000);
