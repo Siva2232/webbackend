@@ -34,18 +34,25 @@ exports.loginAdmin = async (req, res) => {
     const { email, password } = req.body;
 
     const admin = await Admin.findOne({ email });
-    if (!admin) return res.status(400).json({ message: "Invalid credentials" });
+    if (!admin) {
+      // Prevent username enumeration by keeping bcrypt timing similar
+      const dummyHash = "$2a$10$abcdefghijklmnopqrstuv1234567890ABCDEF1234567890abcde";
+      await bcrypt.compare(password, dummyHash).catch(() => {});
+      return res.status(403).json({ message: "Invalid credentials" });
+    }
+
+    const nowMs = Date.now();
 
     // Reset lock if the lock-period has expired
-    if (admin.lockUntil && admin.lockUntil <= Date.now()) {
+    if (admin.lockUntil && new Date(admin.lockUntil).getTime() <= nowMs) {
       admin.loginAttempts = 0;
       admin.lockUntil = undefined;
       await admin.save();
     }
 
     // Check if account is locked
-    if (admin.lockUntil && admin.lockUntil > Date.now()) {
-      const remainingTime = Math.ceil((admin.lockUntil - Date.now()) / 60000);
+    if (admin.lockUntil && new Date(admin.lockUntil).getTime() > nowMs) {
+      const remainingTime = Math.ceil((new Date(admin.lockUntil).getTime() - nowMs) / 60000);
       return res.status(403).json({
         message: `Account is locked. Please try again after ${remainingTime} minutes or contact support.`,
         lockUntil: admin.lockUntil,
@@ -60,7 +67,7 @@ exports.loginAdmin = async (req, res) => {
 
       if (admin.loginAttempts >= 3) {
         // Lock account for 60 minutes after 3 failed attempts
-        admin.lockUntil = Date.now() + 60 * 60 * 1000;
+        admin.lockUntil = new Date(nowMs + 60 * 60 * 1000);
       }
 
       await admin.save();
