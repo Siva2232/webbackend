@@ -109,6 +109,9 @@ exports.getRegistrations = async (req, res) => {
         { serialNumber: new RegExp(text, "i") },
         { modelNumber: new RegExp(text, "i") },
         { purchaseShopName: new RegExp(text, "i") },
+        { phone: new RegExp(text, "i") },
+        { email: new RegExp(text, "i") },
+        { carModelName: new RegExp(text, "i") },
       ];
     }
 
@@ -225,6 +228,75 @@ exports.getRegistrations = async (req, res) => {
     }
 
     res.json(transformed);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Search registrations by query (phone, customerName, serial, model, shop, etc.)
+exports.searchRegistrations = async (req, res) => {
+  try {
+    const { q, page, limit } = req.query;
+    const pageNum = parseInt(page, 10) || 1;
+    const perPage = parseInt(limit, 10) || 50;
+
+    if (!q || !q.trim()) {
+      return res.status(400).json({ message: "Query parameter 'q' is required." });
+    }
+
+    const text = q.trim();
+    const filter = {
+      $or: [
+        { customerName: new RegExp(text, "i") },
+        { serialNumber: new RegExp(text, "i") },
+        { modelNumber: new RegExp(text, "i") },
+        { purchaseShopName: new RegExp(text, "i") },
+        { phone: new RegExp(text, "i") },
+        { email: new RegExp(text, "i") },
+        { carModelName: new RegExp(text, "i") },
+      ],
+    };
+
+    const queryBuilder = Registration.find(filter)
+      .populate("productId", "productName modelNumber")
+      .lean()
+      .sort({ createdAt: -1 });
+
+    const total = await Registration.countDocuments(filter);
+
+    if (perPage > 0) {
+      queryBuilder.skip((pageNum - 1) * perPage).limit(perPage);
+    }
+
+    const data = await queryBuilder.exec();
+
+    const transformed = data.map((reg) => {
+      const obj = reg;
+      obj.computedModelNumber = obj.modelNumber || (obj.productId ? obj.productId.modelNumber : "");
+      obj.computedShopName = obj.purchaseShopName || "";
+      if (obj.isManual) {
+        obj.warrantyStatus = "Not Registered";
+        obj.expiryDate = null;
+      } else {
+        const now = new Date();
+        if (obj.expiryDate) {
+          obj.warrantyStatus = new Date(obj.expiryDate) >= now ? "Active" : "Expired";
+        } else {
+          obj.warrantyStatus = "Not Registered";
+        }
+      }
+      return obj;
+    });
+
+    const statsObj = {
+      totalAll: await Registration.countDocuments(),
+      active: await Registration.countDocuments({ expiryDate: { $gte: new Date() }, isManual: false }),
+      expired: await Registration.countDocuments({ expiryDate: { $lt: new Date() }, isManual: false }),
+      newToday: await Registration.countDocuments({ createdAt: { $gte: (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })(), $lte: (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })() } }),
+      manual: await Registration.countDocuments({ isManual: true }),
+    };
+
+    return res.json({ data: transformed, total, page: pageNum, limit: perPage, stats: statsObj });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
