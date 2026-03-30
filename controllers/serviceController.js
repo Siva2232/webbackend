@@ -2,6 +2,36 @@ const ServiceRecord = require("../models/ServiceRecord");
 const Registration = require("../models/Registration");
 const Notification = require("../models/Notification");
 
+// Get Service Statistics for Tracker Tiles
+exports.getServiceStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [totalActive, pending, highPriority, returnedToday] = await Promise.all([
+      // 1. Total Active: Everything not yet returned
+      ServiceRecord.countDocuments({ status: { $ne: "Returned" } }),
+      // 2. Pending: Received but not started
+      ServiceRecord.countDocuments({ status: "Received" }),
+      // 3. High Priority: Any active record marked High
+      ServiceRecord.countDocuments({ status: { $ne: "Returned" }, priority: "High" }),
+      // 4. Returned Today: Successfully completed today
+      ServiceRecord.countDocuments({ status: "Returned", returnedDate: { $gte: startOfToday } })
+    ]);
+
+    res.json({
+      totalActive,
+      pending,
+      highPriority,
+      returnedToday
+    });
+  } catch (err) {
+    console.error("Error in getServiceStats:", err);
+    res.status(500).json({ message: "Error fetching service statistics." });
+  }
+};
+
 // Search Service History & Warranty Status
 exports.lookupServiceHistory = async (req, res) => {
   try {
@@ -256,27 +286,5 @@ exports.deleteServiceRecord = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error deleting service record" });
-  }
-};
-
-// Get Service Stats for ServiceTracker Tiles
-exports.getServiceStats = async (req, res) => {
-  try {
-    const [total, inProgress, returned, received] = await Promise.all([
-      ServiceRecord.countDocuments({ manualEntry: { $ne: true } }),
-      ServiceRecord.countDocuments({ status: "In Progress", manualEntry: { $ne: true } }),
-      ServiceRecord.countDocuments({ status: "Returned", manualEntry: { $ne: true } }),
-      ServiceRecord.countDocuments({ status: "Received", manualEntry: { $ne: true } }),
-    ]);
-
-    res.json({
-      total,
-      inProgress,
-      returned,
-      received
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error fetching service stats" });
   }
 };
