@@ -66,7 +66,7 @@ exports.loginAdmin = async (req, res) => {
       admin.loginAttempts += 1;
 
       if (admin.loginAttempts >= 3) {
-        // Lock account for 60 minutes after 3 failed attempts
+        // Lock account for 1 hour after 3 failed attempts
         admin.lockUntil = new Date(nowMs + 60 * 60 * 1000);
       }
 
@@ -76,9 +76,9 @@ exports.loginAdmin = async (req, res) => {
       let message;
 
       if (remainingAttempts > 0) {
-        message = `Invalid credentials. You have ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`;
+        message = `Invalid credentials. You have ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining. After that, tech support will lock your account for 1 hour.`;
       } else {
-        message = `Account is locked. Please try again after 60 minutes or contact support.`;
+        message = `Login disabled. Please contact tech support or try again after 1 hour.`;
       }
 
       return res.status(403).json({ message });
