@@ -2,36 +2,6 @@ const ServiceRecord = require("../models/ServiceRecord");
 const Registration = require("../models/Registration");
 const Notification = require("../models/Notification");
 
-// Get Service Statistics for Tracker Tiles
-exports.getServiceStats = async (req, res) => {
-  try {
-    const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const [totalActive, pending, highPriority, returnedToday] = await Promise.all([
-      // 1. Total Active: Everything not yet returned
-      ServiceRecord.countDocuments({ status: { $ne: "Returned" } }),
-      // 2. Pending: Received but not started
-      ServiceRecord.countDocuments({ status: "Received" }),
-      // 3. High Priority: Any active record marked High
-      ServiceRecord.countDocuments({ status: { $ne: "Returned" }, priority: "High" }),
-      // 4. Returned Today: Successfully completed today
-      ServiceRecord.countDocuments({ status: "Returned", returnedDate: { $gte: startOfToday } })
-    ]);
-
-    res.json({
-      totalActive,
-      pending,
-      highPriority,
-      returnedToday
-    });
-  } catch (err) {
-    console.error("Error in getServiceStats:", err);
-    res.status(500).json({ message: "Error fetching service statistics." });
-  }
-};
-
 // Search Service History & Warranty Status
 exports.lookupServiceHistory = async (req, res) => {
   try {
@@ -274,6 +244,91 @@ exports.updateServiceRecord = async (req, res) => {
     res.status(500).json({ message: "Error updating record." });
   }
 };
+// Get Service Stats for Filter Tiles
+exports.getServiceStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const [received, inProgress, returned, highPriority, today] = await Promise.all([
+      ServiceRecord.countDocuments({ status: "Received" }),
+      ServiceRecord.countDocuments({ status: "In Progress" }),
+      ServiceRecord.countDocuments({ status: "Returned" }),
+      ServiceRecord.countDocuments({ priority: "High", status: { $ne: "Returned" } }),
+      ServiceRecord.countDocuments({ createdAt: { $gte: startOfToday, $lte: endOfToday } })
+    ]);
+
+    res.json({
+      received,
+      inProgress,
+      returned,
+      highPriority,
+      today
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching service stats" });
+  }
+};
+
+// Filter Service Records
+exports.filterServiceRecords = async (req, res) => {
+  try {
+    const { type, page, limit } = req.query;
+    const pageNum = parseInt(page, 10) || 1;
+    const perPage = parseInt(limit, 10) || 50;
+
+    const filter = {};
+    const now = new Date();
+
+    switch (type) {
+      case 'received':
+        filter.status = "Received";
+        break;
+      case 'in-progress':
+        filter.status = "In Progress";
+        break;
+      case 'returned':
+        filter.status = "Returned";
+        break;
+      case 'high-priority':
+        filter.priority = "High";
+        filter.status = { $ne: "Returned" };
+        break;
+      case 'today':
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(now);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt = { $gte: start, $lte: end };
+        break;
+      default:
+        // Do nothing, fetch all if no type
+        break;
+    }
+
+    const total = await ServiceRecord.countDocuments(filter);
+    const data = await ServiceRecord.find(filter)
+      .sort({ receivedDate: -1 })
+      .skip((pageNum - 1) * perPage)
+      .limit(perPage)
+      .lean();
+
+    res.json({
+      data,
+      total,
+      page: pageNum,
+      limit: perPage
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error filtering service records" });
+  }
+};
+
 // Delete Service Record
 exports.deleteServiceRecord = async (req, res) => {
   try {
