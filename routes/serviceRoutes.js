@@ -4,12 +4,16 @@ const {
   lookupServiceHistory, 
   createServiceRecord, 
   updateServiceRecord,
-  deleteServiceRecord
+  deleteServiceRecord,
+  getServiceStats
 } = require("../controllers/serviceController");
 const protect = require("../middleware/authMiddleware");
 
 // Look up a product's service history & warranty status
 router.get("/history", lookupServiceHistory);
+
+// Get service totals for dashboard tiles
+router.get("/stats", protect, getServiceStats);
 
 // Create a new service record (Store Accept)
 router.post("/", protect, createServiceRecord);

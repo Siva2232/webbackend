@@ -258,3 +258,25 @@ exports.deleteServiceRecord = async (req, res) => {
     res.status(500).json({ message: "Error deleting service record" });
   }
 };
+
+// Get Service Stats for ServiceTracker Tiles
+exports.getServiceStats = async (req, res) => {
+  try {
+    const [total, inProgress, returned, received] = await Promise.all([
+      ServiceRecord.countDocuments({ manualEntry: { $ne: true } }),
+      ServiceRecord.countDocuments({ status: "In Progress", manualEntry: { $ne: true } }),
+      ServiceRecord.countDocuments({ status: "Returned", manualEntry: { $ne: true } }),
+      ServiceRecord.countDocuments({ status: "Received", manualEntry: { $ne: true } }),
+    ]);
+
+    res.json({
+      total,
+      inProgress,
+      returned,
+      received
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching service stats" });
+  }
+};
