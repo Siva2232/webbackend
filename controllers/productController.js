@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const Model = require("../models/Model");
 const generateQRCode = require("../utils/qrGenerator");
 
 // Create Product + Generate QR
@@ -10,6 +11,15 @@ exports.createProduct = async (req, res) => {
     const existing = await Product.findOne({ serialNumber });
     if (existing) {
       return res.status(400).json({ message: "Serial number already exists" });
+    }
+
+    // Save model name if it doesn't exist
+    if (modelNumber) {
+      await Model.findOneAndUpdate(
+        { name: modelNumber },
+        { name: modelNumber },
+        { upsert: true, new: true }
+      );
     }
 
     // Generate QR Code via utility (model + encoded serial token)
@@ -214,6 +224,15 @@ exports.bulkCreateProducts = async (req, res) => {
         message: `No products created. All ${requestedCount} serials already exist or encountered errors.`,
         errors: errors 
       });
+    }
+
+    // Save model name if it doesn't exist
+    if (modelNumber) {
+      await Model.findOneAndUpdate(
+        { name: modelNumber },
+        { name: modelNumber },
+        { upsert: true, new: true }
+      );
     }
 
     res.status(201).json({ 

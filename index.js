@@ -98,6 +98,7 @@ app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/stats", require("./routes/statsRoutes"));
 app.use("/api/service", require("./routes/serviceRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/api/models", require("./routes/modelRoutes"));
 
 app.get("/", (req, res) => {
   res.send("Warranty Tracker API Running");
