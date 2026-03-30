@@ -6,7 +6,12 @@ const protect = require("../middleware/authMiddleware");
 // Get all unique model names
 router.get("/", protect, async (req, res) => {
   try {
-    const models = await Model.find().sort({ name: 1 });
+    const { q } = req.query;
+    let filter = {};
+    if (q) {
+      filter = { name: new RegExp(q.trim(), "i") };
+    }
+    const models = await Model.find(filter).sort({ name: 1 });
     res.json(models);
   } catch (error) {
     res.status(500).json({ message: error.message });
