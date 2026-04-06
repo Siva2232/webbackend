@@ -107,6 +107,72 @@ exports.loginAdmin = async (req, res) => {
   }
 };
 
+// Get current admin profile (protected)
+exports.getMe = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin._id).select("-password");
+    if (!admin) return res.status(404).json({ message: "Admin not found." });
+    res.json({
+      id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      createdAt: admin.createdAt,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// Update profile name (protected)
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Name is required." });
+    }
+    if (name.trim().length > 60) {
+      return res.status(400).json({ message: "Name must be 60 characters or fewer." });
+    }
+    const admin = await Admin.findByIdAndUpdate(
+      req.admin._id,
+      { name: name.trim() },
+      { new: true, select: "-password" }
+    );
+    res.json({ message: "Profile updated.", name: admin.name, email: admin.email });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+// Change password (protected — requires current password)
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Both current and new password are required." });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters." });
+    }
+
+    const admin = await Admin.findById(req.admin._id);
+    if (!admin) return res.status(404).json({ message: "Admin not found." });
+
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await Admin.findByIdAndUpdate(admin._id, { password: hashedPassword });
+
+    res.json({ message: "Password changed successfully." });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
 // Forgot / Reset Password
 exports.forgotPassword = async (req, res) => {
   try {
