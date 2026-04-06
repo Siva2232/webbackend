@@ -34,4 +34,15 @@ router.post("/", protect, async (req, res) => {
   }
 });
 
+// Delete a model by ID
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const model = await Model.findByIdAndDelete(req.params.id);
+    if (!model) return res.status(404).json({ message: "Model not found" });
+    res.json({ message: "Model deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
